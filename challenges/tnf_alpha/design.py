@@ -36,6 +36,7 @@ from mosaic.optimizers import simplex_APGM
 from mosaic.proteinmpnn.mpnn import load_mpnn_sol
 from mosaic.structure_prediction import TargetChain
 
+from gravity import tnf_gravitational_loss
 from ph_switch import ph_switch_loss
 from target import HUMAN_TNF, groove_epitope_idx, tnf_template_chains
 
@@ -46,7 +47,9 @@ POOLS = {
 }
 
 
-def build_objective(model, binder_length, epitope_idx, his_target, mpnn):
+def build_objective(
+    model, binder_length, epitope_idx, his_target, mpnn, gravity_weight=2.0
+):
     """Complex + monomer objective for one sub-pool."""
     target_chains = [
         TargetChain(HUMAN_TNF, use_msa=True, template_chain=ch)
@@ -66,6 +69,12 @@ def build_objective(model, binder_length, epitope_idx, his_target, mpnn):
         + 0.3 * sp.HelixLoss()
         + 5.0 * InverseFoldingSequenceRecovery(mpnn, temp=jnp.array(0.01))
     )
+    # Signed coordinate-space field on top of the distogram contact term. The
+    # distogram term says "touch the groove"; this one says which residues of it
+    # matter and which to actively avoid (the six that diverge in mouse).
+    if gravity_weight:
+        interface = interface + gravity_weight * tnf_gravitational_loss()
+
     if his_target is not None:
         interface = interface + 2.0 * ph_switch_loss(
             epitope_idx=epitope_idx, target_count=his_target
@@ -98,6 +107,7 @@ def main():
     ap.add_argument("--stepsize", type=float, default=0.1)
     ap.add_argument("--momentum", type=float, default=0.9)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--gravity-weight", type=float, default=2.0)
     ap.add_argument("--out", type=Path, default=Path("designs"))
     args = ap.parse_args()
 
@@ -116,7 +126,8 @@ def main():
     model = Boltz2()
     mpnn = load_mpnn_sol(0.05)
     objective = build_objective(
-        model, args.binder_length, epitope_idx, his_target, mpnn
+        model, args.binder_length, epitope_idx, his_target, mpnn,
+        gravity_weight=args.gravity_weight,
     )
 
     out_path = args.out / f"{args.pool}_L{args.binder_length}.jsonl"
