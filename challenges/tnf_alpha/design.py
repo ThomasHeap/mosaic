@@ -1,0 +1,155 @@
+"""De novo minibinder design against the TNF-alpha receptor groove.
+
+Submit via `submit.sh` -- this loads Boltz-2 and must run on a GPU node.
+
+Three sub-pools, because the challenge's ranked criteria pull against each other
+and 20-40 slots is enough to hedge rather than bet:
+
+  affinity  -- no histidine constraint, contacts biased to mouse-conserved
+               epitope residues. Baseline; maximizes the chance of *any* hit.
+  ph        -- interface histidine budget on top of the affinity objective.
+               Targets criterion #1 (pH-selective binding, ranked first).
+  ph_hot    -- a larger histidine budget. Deliberately over-pushed: if the
+               moderate budget turns out not to switch, this brackets it.
+
+Usage:
+    python design.py --pool ph --n-designs 8 --binder-length 75 --out designs/
+"""
+
+import argparse
+import json
+import os
+from pathlib import Path
+
+os.environ.setdefault("XLA_PYTHON_CLIENT_MEM_FRACTION", "0.95")
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+
+import mosaic.losses.structure_prediction as sp
+from mosaic.common import TOKENS
+from mosaic.losses.protein_mpnn import InverseFoldingSequenceRecovery
+from mosaic.losses.transformations import NoCys
+from mosaic.models.boltz2 import Boltz2
+from mosaic.optimizers import simplex_APGM
+from mosaic.proteinmpnn.mpnn import load_mpnn_sol
+from mosaic.structure_prediction import TargetChain
+
+from ph_switch import ph_switch_loss
+from target import HUMAN_TNF, groove_epitope_idx, tnf_template_chains
+
+POOLS = {
+    "affinity": dict(his_target=None),
+    "ph": dict(his_target=3.0),
+    "ph_hot": dict(his_target=5.0),
+}
+
+
+def build_objective(model, binder_length, epitope_idx, his_target, mpnn):
+    """Complex + monomer objective for one sub-pool."""
+    target_chains = [
+        TargetChain(HUMAN_TNF, use_msa=True, template_chain=ch)
+        for ch in tnf_template_chains(2)
+    ]
+
+    complex_features, _ = model.binder_features(binder_length, target_chains)
+    monomer_features, _ = model.binder_features(binder_length, [])
+
+    # Contacts are restricted to the groove epitope, conserved positions only --
+    # this is what buys mouse cross-reactivity (criterion #2) rather than an
+    # adalimumab-like human-only footprint.
+    interface = (
+        4.0 * sp.BinderTargetContact(epitope_idx=epitope_idx, contact_distance=20.0)
+        + 1.0 * sp.WithinBinderContact()
+        + 1.0 * sp.DistogramRadiusOfGyration(target_radius=15.0)
+        + 0.3 * sp.HelixLoss()
+        + 5.0 * InverseFoldingSequenceRecovery(mpnn, temp=jnp.array(0.01))
+    )
+    if his_target is not None:
+        interface = interface + 2.0 * ph_switch_loss(
+            epitope_idx=epitope_idx, target_count=his_target
+        )
+
+    complex_loss = model.build_loss(
+        loss=interface, features=complex_features, recycling_steps=1
+    )
+    # The monomer term is what keeps the binder a real, foldable protein rather
+    # than a surface-complementary ribbon that only exists in the complex.
+    monomer_loss = model.build_loss(
+        loss=0.2 * sp.PLDDTLoss()
+        + sp.DistogramRadiusOfGyration(target_radius=15.0)
+        + 0.3 * sp.HelixLoss(),
+        features=monomer_features,
+        recycling_steps=1,
+    )
+
+    # Cysteine is excluded: free cysteines in a secreted minibinder invite
+    # disulfide scrambling, and the assay construct is tag-free.
+    return NoCys(complex_loss + 0.5 * monomer_loss)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--pool", choices=sorted(POOLS), default="ph")
+    ap.add_argument("--n-designs", type=int, default=8)
+    ap.add_argument("--binder-length", type=int, default=75)
+    ap.add_argument("--n-steps", type=int, default=150)
+    ap.add_argument("--stepsize", type=float, default=0.1)
+    ap.add_argument("--momentum", type=float, default=0.9)
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--out", type=Path, default=Path("designs"))
+    args = ap.parse_args()
+
+    if not jax.devices()[0].platform == "gpu":
+        raise SystemExit(
+            f"refusing to run on {jax.devices()[0].platform}: submit with submit.sh"
+        )
+
+    args.out.mkdir(parents=True, exist_ok=True)
+    epitope_idx = groove_epitope_idx(n_protomers=2, conserved_only=True)
+    his_target = POOLS[args.pool]["his_target"]
+
+    print(f"pool={args.pool} his_target={his_target} "
+          f"binder_length={args.binder_length} epitope={len(epitope_idx)} positions")
+
+    model = Boltz2()
+    mpnn = load_mpnn_sol(0.05)
+    objective = build_objective(
+        model, args.binder_length, epitope_idx, his_target, mpnn
+    )
+
+    out_path = args.out / f"{args.pool}_L{args.binder_length}.jsonl"
+    with out_path.open("a") as fh:
+        for i in range(args.n_designs):
+            key = jax.random.key(args.seed * 10_000 + i)
+            x0 = jax.nn.softmax(
+                0.5 * jax.random.gumbel(key, shape=(args.binder_length, 20))
+            )
+            _, pssm = simplex_APGM(
+                loss_function=objective,
+                x=x0,
+                n_steps=args.n_steps,
+                stepsize=args.stepsize,
+                momentum=args.momentum,
+                key=jax.random.fold_in(key, 1),
+            )
+            seq = "".join(TOKENS[j] for j in np.asarray(pssm).argmax(-1))
+            record = {
+                "name": f"tnf_{args.pool}_L{args.binder_length}_s{args.seed}_{i}",
+                "sequence": seq,
+                "molecule_class": "protein",
+                "pool": args.pool,
+                "his_target": his_target,
+                "n_his": seq.count("H"),
+            }
+            fh.write(json.dumps(record) + "\n")
+            fh.flush()
+            print(f"[{i + 1}/{args.n_designs}] {record['name']} "
+                  f"nHis={record['n_his']} {seq}")
+
+    print(f"wrote {out_path}")
+
+
+if __name__ == "__main__":
+    main()
