@@ -37,18 +37,25 @@ from mosaic.proteinmpnn.mpnn import load_mpnn_sol
 from mosaic.structure_prediction import TargetChain
 
 from gravity import tnf_gravitational_loss
+from ph_physics import ElectrostaticPKaSelectivity
 from ph_switch import ph_switch_loss
 from target import HUMAN_TNF, groove_epitope_idx, tnf_template_chains
 
 POOLS = {
-    "affinity": dict(his_target=None),
-    "ph": dict(his_target=3.0),
-    "ph_hot": dict(his_target=5.0),
+    "affinity": dict(his_target=None, physics=False),
+    "ph": dict(his_target=3.0, physics=False),
+    "ph_hot": dict(his_target=5.0, physics=False),
+    # Optimizes the scored quantity (log10 selectivity) through a differentiable
+    # pKa model rather than a histidine-count proxy. Its parameters are not yet
+    # calibrated -- see ph_physics.calibrate -- so it runs as its own pool and
+    # is compared against the proxy pools rather than replacing them.
+    "physics": dict(his_target=2.0, physics=True),
 }
 
 
 def build_objective(
-    model, binder_length, epitope_idx, his_target, mpnn, gravity_weight=2.0
+    model, binder_length, epitope_idx, his_target, mpnn, gravity_weight=2.0,
+    physics=False,
 ):
     """Complex + monomer objective for one sub-pool."""
     target_chains = [
@@ -75,7 +82,14 @@ def build_objective(
     if gravity_weight:
         interface = interface + gravity_weight * tnf_gravitational_loss()
 
-    if his_target is not None:
+    if physics:
+        # A mild count proxy stays on as a prior: the physics term rewards
+        # selectivity wherever it can find it, and without any pressure to put
+        # histidines in the interface at all it has little to work with early on.
+        interface = interface + 3.0 * ElectrostaticPKaSelectivity(
+            epitope_idx=tuple(epitope_idx)
+        ) + 0.5 * ph_switch_loss(epitope_idx=epitope_idx, target_count=his_target)
+    elif his_target is not None:
         interface = interface + 2.0 * ph_switch_loss(
             epitope_idx=epitope_idx, target_count=his_target
         )
@@ -119,15 +133,16 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     epitope_idx = groove_epitope_idx(n_protomers=2, conserved_only=True)
     his_target = POOLS[args.pool]["his_target"]
+    physics = POOLS[args.pool]["physics"]
 
-    print(f"pool={args.pool} his_target={his_target} "
+    print(f"pool={args.pool} his_target={his_target} physics={physics} "
           f"binder_length={args.binder_length} epitope={len(epitope_idx)} positions")
 
     model = Boltz2()
     mpnn = load_mpnn_sol(0.05)
     objective = build_objective(
         model, args.binder_length, epitope_idx, his_target, mpnn,
-        gravity_weight=args.gravity_weight,
+        gravity_weight=args.gravity_weight, physics=physics,
     )
 
     out_path = args.out / f"{args.pool}_L{args.binder_length}.jsonl"
@@ -152,6 +167,7 @@ def main():
                 "molecule_class": "protein",
                 "pool": args.pool,
                 "his_target": his_target,
+                "physics": physics,
                 "n_his": seq.count("H"),
             }
             fh.write(json.dumps(record) + "\n")
