@@ -72,28 +72,49 @@ over a discrete structure — it has no gradient w.r.t. a soft sequence. Hence:
   log10 selectivity. This is the number to trust, used to triage and order the
   submission. PROPKA's MAE is ~0.7 pKa units ≈ 0.7 log10 of selectivity — the size
   of the whole per-histidine effect — so rank with it, never gate on it.
-- **Tier 3 — stretch goal: make Tier 2 differentiable.** Distil PROPKA into a JAX
-  surrogate. PROPKA is a fast deterministic function, so label a large PDB subset
-  with it and regress from features `mosaic` already exposes differentiably
-  (`atom37_coords` distances × neighbour identity from the soft sequence). Fitting
-  a deterministic function, not noisy experiment, so the surrogate can track
-  PROPKA closely and then drops straight in as a `LossTerm`. Training against
-  *experimental* pKa instead (PKAD-2, ~1,500 measured values) is the better science
-  but the worse deadline bet.
+- **Tier 3 — differentiable physics, no training** (`ph_physics.py`). Rather than
+  distil PROPKA into a learned surrogate, port the *model* that JustHISpKa uses:
+  electrostatics-only, with a linear map to pKa. Coulomb over the environment's
+  expected charge under the PSSM is differentiable in sequence and coordinates
+  alike; burial gives the reaction-field term. Both end states come out of the
+  single complex prediction — binder neighbours alone give pKa_free, adding the
+  target gives pKa_bound — so the shift is exactly the target's contribution, and
+  the result goes through the same linkage relation as Tier 2 (they agree to
+  1e-4). No labels, no training, no distribution shift, and it optimizes the
+  scored quantity instead of a proxy. Parameters are physically scaled but
+  uncalibrated; `ph_physics.calibrate` documents the 3-parameter fit against
+  PROPKA labels.
+
+  A learned surrogate is still the fallback if the analytic form proves too crude:
+  PROPKA labels are free (~0.6 s/complex, so 20k structures is ~90 s on one
+  128-core node) and the features `mosaic` exposes differentiably are enough to
+  regress on. But it inherits a distribution-shift problem the analytic form does
+  not have — PROPKA labels come from full-sidechain structures, and design-time
+  predictions have no sidechains.
+
+### Pools
+
+| pool | pH objective | purpose |
+|---|---|---|
+| `affinity` | none | baseline; maximizes chance of any hit |
+| `ph` | count proxy, 3 histidines | needs elevated pKa_free to reach 2 log10 |
+| `ph_hot` | count proxy, 5 histidines | brackets the budget from above |
+| `physics` | differentiable linkage selectivity | optimizes the scored quantity directly |
+
+The `physics` pool keeps a weak count proxy alongside the physics term: without
+any pressure to put histidines in the interface at all, the selectivity term has
+little to act on early in a trajectory.
 
 ## Running it
 
 Design runs need a GPU node — `design.py` refuses to start on CPU:
 
 ```bash
-./submit.sh ph        8 75      # pool, n_designs, binder_length
-./submit.sh ph_hot    8 75
-./submit.sh affinity  8 65
+./submit.sh affinity 8 65      # pool, n_designs, binder_length
+./submit.sh ph       8 75
+./submit.sh ph_hot   8 75
+./submit.sh physics  8 75
 ```
-
-Pools hedge the histidine budget rather than betting on one value: `affinity` (none,
-baseline), `ph` (3), `ph_hot` (5). The table above says 3 only suffices with elevated
-pKa_free, so the bracket is deliberate.
 
 Then rank and build the submission:
 
@@ -105,6 +126,9 @@ python rank.py designs/*.jsonl --out submission.csv
 
 - [x] epitope derived and mouse conservation mapped
 - [x] pH-selectivity scoring validated against TNF's own histidines
+- [x] coordinate-space epitope weighting with mouse-divergent repulsion
+- [x] differentiable linkage-selectivity loss, sign-tested
+- [ ] calibrate ph_physics against PROPKA (needs ~200 predicted complexes)
 - [ ] repredict designs and populate Tier 2 scores (needs a GPU job)
 - [ ] calibrate: run Tier 2 on adalimumab/infliximab as negative controls for
       pH selectivity — the challenge permits known binders for filter calibration
