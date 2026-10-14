@@ -484,10 +484,78 @@ than keep paying for Boltz-2 compiles.
 
 ---
 
+## 13 — Triton GEMM was the hang. First design produced; optimizer diverges
+
+**When** 2026-10-14 18:10–18:25. Probe **19400552** COMPLETED. Real runs
+relaunched as **19400709** (ph), **19400710** (ph_hot), **19400711** (physics),
+**19400712** (affinity).
+
+**Ran**
+```bash
+sbatch ... --gpus=a100:1 --wrap "XLA_FLAGS='--xla_gpu_enable_triton_gemm=false' \
+  python -u design.py --pool affinity --n-designs 1 --binder-length 60 --n-steps 20"
+```
+
+**Result — hypothesis confirmed.** Zero `tt.dot` errors (was 5+), and the job
+went from hung to optimizing. So the hang was XLA's Triton GEMM autotuner, not
+contention, not the MSA server, and not our code. The `use_msa=False` probe was
+not needed.
+
+**Timing, which settles the budget.** 91.9 s for step 0 (compile included), then
+**7.61–7.65 s/step**, dead steady. So 150 steps ≈ 19 min per design, 8 designs
+≈ 2.6 h — comfortably inside the 6 h wall at L60. L75 will be somewhat slower.
+
+What disabling Triton GEMM costs: matmuls fall back to cuBLAS, losing fusion
+with neighbouring elementwise ops, not GEMM performance itself. Cheap against
+not running. If the fusion is wanted back, `--xla_gpu_autotune_level=0` keeps
+Triton while skipping the step that is actually broken.
+
+**First sequence** (60 aa, no cysteine, 3 histidines):
+```
+WWKFLDLLYSLPENPGTMHSLSILGLRMLSKQWSLSLGGSYTMYFYHSSDHGGVMAVQAG
+```
+
+### The trajectory is diverging
+
+| step | loss | d_attract | grav | monomer pLDDT |
+|---|---|---|---|---|
+| 0 | 40.27 | 13.04 | 4.57 | 0.87 |
+| 8 | **31.18** | 9.54 | 3.38 | 0.59 |
+| 14 | 46.46 | 21.32 | 10.78 | 0.49 |
+| 19 | 40.43 | 18.14 | 8.27 | 0.55 |
+
+Best loss is at step 8, after which the binder walks *off* the epitope
+(`d_attract` 9.3 → 18.1 Å) and monomer pLDDT falls from 0.87 to 0.55.
+`stepsize=0.1, momentum=0.9` is too aggressive here, and `grav` swinging
+2.7 → 10.8 shows weight 2.0 was dominating the loss changes.
+
+`simplex_APGM` returns the best iterate, which is what `design.py` uses, so
+divergence does not corrupt the output — but it wastes most of a 150-step
+budget. New defaults: `stepsize=0.08`, `momentum=0.5`, `gravity_weight=1.0`.
+
+**A quality flag to watch, not yet addressed.** `sequence_recovery` sat at
+0.04–0.17 throughout. That term exists to pull the design toward sequences
+ProteinMPNN considers plausible for the backbone, and agreement that low says
+the designs are not very protein-like yet. `nnz` ending near 7.7 also means the
+PSSM never sharpened to near-one-hot. Both suggest the 150-step runs need
+checking for the same symptoms before anything is submitted — and that the
+ProteinMPNN weight may need raising.
+
+**Process mistake** The first relaunch of all four silently submitted *nothing*.
+A scripted edit inserted a comment block between `-o ... \` and `--wrap` inside
+the `sbatch` line continuation, breaking it. `bash -n submit.sh` passed, because
+the result was syntactically valid and merely wrong. Caught only by checking
+`squeue` and finding it empty. *Verify a submit by looking at the queue, not by
+syntax-checking the submitter.*
+
+---
+
 ## Open / next
 
-- **No designs exist yet.** Probe 19400552 is testing whether Boltz-2 can run at
-  all here (entry 12). Fall back to the ESMFold2 path if it cannot.
+- 32 designs in flight: 19400709 / 19400710 / 19400711 / 19400712 (entry 13).
+  Boltz-2 is viable here at ~7.6 s/step, so the ESMFold2 fallback is not needed.
+- Check the finished runs for low ProteinMPNN sequence recovery and an
+  unsharpened PSSM (entry 13) before trusting any design.
 - Run `$PY -I selftest.py` before every design submit.
 - Repredict designs, populate Tier 2 scores on the JSONL records, then
   `$PY -I rank.py designs/*.jsonl --out submission.csv --limit 40`.

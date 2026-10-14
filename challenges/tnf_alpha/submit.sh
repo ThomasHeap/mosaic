@@ -24,6 +24,14 @@ mkdir -p "$CHALLENGE/logs" "$CHALLENGE/designs"
 # CUDA"), which kills the job minutes in -- see LOG.md entry 10.
 EXCLUDE="${EXCLUDE:-bp1-gpu031}"
 
+# XLA's Triton GEMM autotuner emits invalid kernels on this stack
+# ("'tt.dot' op expected the output shape to be the concatenation...") and then
+# wedges on-device while consuming no CPU -- four jobs sat idle for 35 minutes
+# before this was found (LOG.md entries 12-13). Forcing cuBLAS costs the
+# matmul/elementwise fusion, not GEMM performance itself. Probe 19400552 went
+# from hung to 7.62 s/step with this set.
+XLA="--xla_gpu_enable_triton_gemm=false"
+
 # Cold-cache guard. Boltz-2 lazily downloads a 2.2 GB checkpoint and a 1.8 GB
 # CCD tarball into one shared cache on first use. Launching several jobs at once
 # against an empty cache makes them race on the same paths: one wins and the
@@ -46,6 +54,6 @@ sbatch -A cosc020762 -p cnu -c 8 --mem=64G -t 6:00:00 --gpus=a100:1 \
   --exclude="$EXCLUDE" \
   -J "tnf-$POOL-L$LENGTH" \
   -o "$CHALLENGE/logs/%x-%j.out" \
-  --wrap "cd $CHALLENGE && $REPO/.venv/bin/python design.py \
+  --wrap "cd $CHALLENGE && XLA_FLAGS='$XLA' $REPO/.venv/bin/python -u design.py \
             --pool $POOL --n-designs $N_DESIGNS --binder-length $LENGTH \
             --seed $SEED --out $CHALLENGE/designs"

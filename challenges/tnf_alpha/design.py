@@ -118,10 +118,17 @@ def main():
     ap.add_argument("--n-designs", type=int, default=8)
     ap.add_argument("--binder-length", type=int, default=75)
     ap.add_argument("--n-steps", type=int, default=150)
-    ap.add_argument("--stepsize", type=float, default=0.1)
-    ap.add_argument("--momentum", type=float, default=0.9)
+    # Probe 19400552 diverged with (0.1, 0.9): best loss at step 8, then the
+    # binder walked off the epitope (d_attract 9.3 -> 18.1 A) and monomer pLDDT
+    # fell 0.87 -> 0.55. Lower momentum is the standard fix for an accelerated
+    # method overshooting; simplex_APGM returns the best iterate so divergence
+    # does not corrupt the output, it just wastes most of the budget.
+    ap.add_argument("--stepsize", type=float, default=0.08)
+    ap.add_argument("--momentum", type=float, default=0.5)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--gravity-weight", type=float, default=2.0)
+    # Was 2.0, but grav swung 2.7 -> 10.8 in the probe and dominated the loss
+    # changes. Scaled back so it steers without driving the trajectory.
+    ap.add_argument("--gravity-weight", type=float, default=1.0)
     ap.add_argument("--out", type=Path, default=Path("designs"))
     args = ap.parse_args()
 
