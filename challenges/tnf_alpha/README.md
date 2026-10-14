@@ -163,7 +163,7 @@ python rank.py designs/*.jsonl --out submission.csv
 - [x] differentiable linkage-selectivity loss, sign-tested
 - [x] calibrate `ph_physics` against PROPKA (316 complexes, 1272 histidines)
 - [x] negative controls: adalimumab −0.312, infliximab +0.385 log10 (PASS)
-- [ ] **generate designs — nothing has been run yet, this is the critical path**
+- [x] design runs launched (see LOG.md entry 10)
 - [ ] repredict designs and populate Tier 2 scores (needs a GPU job)
 
 See [LOG.md](LOG.md) for what has been tried, including what did not work.

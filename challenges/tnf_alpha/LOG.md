@@ -318,14 +318,53 @@ an easy trap.*
 
 ---
 
+## 10 — Design runs launched; one GPU node is bad
+
+**When** 2026-10-14 17:17. Jobs **19399012** (affinity L65), **19399013** (ph
+L75), **19399014** (ph_hot L75), **19399015** (physics L75), all `cnu`,
+`--gpus=a100:1`, 8 cores, 64 GB, 6 h.
+
+**Why** Critical path. Nothing can be submitted to the challenge without
+sequences, and the deadline is 2026-10-18.
+
+**Ran**
+```bash
+./submit.sh affinity 8 65 ; ./submit.sh ph 8 75
+./submit.sh ph_hot   8 75 ; ./submit.sh physics 8 75
+```
+
+**Result** Three started normally and reported `epitope=24 positions`, which is
+the conserved two-protomer groove as expected. **19399012 FAILED** after ~4
+minutes, exit 1:0.
+
+**Cause — the node, not the code.** `bp1-gpu031` advertises an `a100` to Slurm
+but CUDA cannot initialize on it:
+
+```
+Failed to create stream executor for device CUDA:0: CUDA_ERROR_UNKNOWN
+RuntimeError: Unable to initialize backend 'cuda': INTERNAL: no supported
+devices found for platform CUDA
+```
+
+The three jobs that landed on `bp1-gpu038` were fine, so this is specific to
+`bp1-gpu031`. Note the failure mode: JAX raises during backend init, *before*
+`design.py`'s own `platform == "gpu"` guard can report anything useful, so the
+guard does not help here.
+
+**Fix** `submit.sh` now passes `--exclude="$EXCLUDE"`, defaulting to
+`bp1-gpu031`; override with the `EXCLUDE` env var. Affinity pool resubmitted as
+**19399131**, which landed on `bp1-gpu038` and started cleanly.
+
+**Lesson** A requested-and-granted GPU allocation does not mean a working GPU.
+Watch for a failure signature, not just for the success marker — a monitor
+grepping only for progress lines would have sat silent through this.
+
+---
+
 ## Open / next
 
-- **Generate designs. Nothing has been run yet — this is the critical path**
-  with 4 days to the deadline.
-  ```bash
-  ./submit.sh affinity 8 65 ; ./submit.sh ph 8 75
-  ./submit.sh ph_hot   8 75 ; ./submit.sh physics 8 75
-  ```
+- Designs in flight (entry 10): 19399013 / 19399014 / 19399015 / 19399131.
+  32 sequences across four pools; more seeds once these land.
 - Repredict designs, populate Tier 2 scores on the JSONL records, then
   `$PY -I rank.py designs/*.jsonl --out submission.csv --limit 40`.
 - Decide the submission split across the four pools.
