@@ -52,6 +52,7 @@ magnitude -- `calibrate()` documents the procedure. Until then use this term for
 its gradient direction and keep `ph_score.py` as the number you rank on.
 """
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float
@@ -102,6 +103,123 @@ def linkage_selectivity(
     return shift(ph_high) - shift(ph_low)
 
 
+class PKaParams(eqx.Module):
+    """Fitted scalars of the pKa model. Defaults are physically scaled guesses.
+
+    `calibrate.py` fits these against PROPKA labels. Kept as a pytree so the fit
+    and the loss term share one implementation of the physics
+    """
+
+    # Dielectric is interpolated from solvent to interior by local burial. A
+    # fixed low epsilon is wrong by a wide margin for surface pairs: the
+    # reaction field in SIE largely cancels Coulomb once a pair is solvated, and
+    # ignoring that put an Asp-His pair at a pKa shift of +6 units instead of
+    # the ~1 unit such pairs actually show.
+    epsilon_solvent: float = 80.0
+    epsilon_interior: float = 10.0
+    # Debye-like range cutoff, so a sum over many distant charges cannot
+    # accumulate into a spurious large shift.
+    screening_length: float = 8.0
+    alpha_desolv: float = 3.0
+    offset: float = 0.0
+    burial_cutoff: float = 10.0
+    burial_width: float = 2.0
+    burial_reference: float = 18.0
+
+
+def _burial(
+    d: Float[Array, "N M"], mask: Float[Array, "N M"], p: PKaParams
+) -> Float[Array, " N"]:
+    """Smooth neighbour count -- a differentiable Born-radius stand-in."""
+    occupancy = jax.nn.sigmoid((p.burial_cutoff - d) / p.burial_width)
+    return (occupancy * mask).sum(-1) / p.burial_reference
+
+
+def _coulomb(
+    d: Float[Array, "N M"],
+    charges: Float[Array, " M"],
+    mask: Float[Array, "N M"],
+    burial: Float[Array, " N"],
+    p: PKaParams,
+) -> Float[Array, " N"]:
+    """Interaction of a +1 charge at each site with its environment, kcal/mol.
+
+    Screening interpolates between solvent and interior dielectric by the burial
+    of the titrating site, and decays exponentially beyond `screening_length`.
+    """
+    # Floor the distance: 2 A is below any real CB-CB separation, and this also
+    # keeps the 1/d gradient bounded.
+    safe_d = jnp.maximum(d, 2.0)
+    eps = p.epsilon_solvent - (
+        p.epsilon_solvent - p.epsilon_interior
+    ) * jnp.clip(burial, 0.0, 1.0)
+    decay = jnp.exp(-safe_d / p.screening_length)
+    pair = charges[None, :] * decay * mask / (eps[:, None] * safe_d)
+    return COULOMB_K * pair.sum(-1)
+
+
+def _pairwise_dist(a, b):
+    """Distances with an epsilon before the sqrt.
+
+    `jnp.linalg.norm` of a zero vector -- which the diagonal of a self-distance
+    matrix always contains -- has a NaN derivative, and masking the diagonal to
+    `jnp.inf` afterwards does not help, because inf poisons the backward pass
+    too. Self-interaction is removed multiplicatively by the caller's mask.
+    """
+    delta = a[:, None, :] - b[None, :, :]
+    return jnp.sqrt((delta * delta).sum(-1) + 1e-6)
+
+
+def predict_pka(
+    binder_cb: Float[Array, "N 3"],
+    target_cb: Float[Array, "M 3"],
+    binder_charge: Float[Array, " N"],
+    target_charge: Float[Array, " M"],
+    params: PKaParams = PKaParams(),
+) -> tuple[Float[Array, " N"], Float[Array, " N"]]:
+    """(pka_free, pka_bound) for every binder position, as if each were histidine.
+
+    Both end states come from one structure: summing over binder neighbours
+    alone gives the free state, adding the target gives the bound state. The
+    binder backbone is assumed unchanged on binding -- the same rigid
+    approximation JustHISpKa makes by working from the complex -- which isolates
+    the shift as exactly the target's electrostatic contribution.
+
+    Pass an empty `target_cb` to score a monomer; the bound state then equals
+    the free state.
+    """
+    n = binder_cb.shape[0]
+    d_bb = _pairwise_dist(binder_cb, binder_cb)
+    off_diag = 1.0 - jnp.eye(n)
+
+    # Free state: binder environment only. Burial comes first, since it sets
+    # the dielectric that screens the Coulomb sum.
+    burial_free = _burial(d_bb, off_diag, params)
+    e_free = _coulomb(d_bb, binder_charge, off_diag, burial_free, params)
+
+    if target_cb.shape[0] == 0:
+        burial_bound, e_bound = burial_free, e_free
+    else:
+        d_bt = _pairwise_dist(binder_cb, target_cb)
+        all_bt = jnp.ones_like(d_bt)
+        burial_bound = burial_free + _burial(d_bt, all_bt, params)
+        e_bound = e_free + _coulomb(
+            d_bt, target_charge, all_bt, burial_bound, params
+        )
+
+    # Linear readout, as in JustHISpKa. Favourable (negative) electrostatic
+    # energy for the +1 form raises pKa; burial lowers it.
+    def to_pka(energy, burial):
+        return (
+            HIS_MODEL_PKA
+            + params.offset
+            - energy / RT_LN10
+            - params.alpha_desolv * burial
+        )
+
+    return to_pka(e_free, burial_free), to_pka(e_bound, burial_bound)
+
+
 class ElectrostaticPKaSelectivity(LossTerm):
     """Maximize expected pH selectivity through a differentiable pKa model.
 
@@ -125,50 +243,7 @@ class ElectrostaticPKaSelectivity(LossTerm):
     ph_high: float = 7.4
     ph_low: float = 6.0
     target_selectivity: float = 2.0
-    # Dielectric is interpolated from solvent to interior by local burial. A
-    # fixed low epsilon is wrong by a wide margin for surface pairs: the
-    # reaction field in SIE largely cancels Coulomb once a pair is solvated, and
-    # ignoring that put an Asp-His pair at a pKa shift of +3 units instead of
-    # the ~1 unit such pairs actually show.
-    epsilon_solvent: float = 80.0
-    epsilon_interior: float = 10.0
-    # Debye-like range cutoff, so a sum over many distant charges cannot
-    # accumulate into a spurious large shift.
-    screening_length: float = 8.0
-    alpha_desolv: float = 3.0
-    burial_cutoff: float = 10.0
-    burial_width: float = 2.0
-    burial_reference: float = 18.0
-
-    def _burial(
-        self, d: Float[Array, "N M"], mask: Float[Array, "N M"]
-    ) -> Float[Array, " N"]:
-        """Smooth neighbour count -- a differentiable Born-radius stand-in."""
-        occupancy = jax.nn.sigmoid((self.burial_cutoff - d) / self.burial_width)
-        return (occupancy * mask).sum(-1) / self.burial_reference
-
-    def _coulomb(
-        self,
-        d: Float[Array, "N M"],
-        charges: Float[Array, " M"],
-        mask: Float[Array, "N M"],
-        burial: Float[Array, " N"],
-    ) -> Float[Array, " N"]:
-        """Interaction of a +1 charge at each site with its environment, kcal/mol.
-
-        Screening interpolates between solvent and interior dielectric by the
-        burial of the titrating site, and decays exponentially beyond
-        `screening_length`.
-        """
-        # Floor the distance: 2 A is below any real CB-CB separation, and this
-        # also keeps the 1/d gradient bounded.
-        safe_d = jnp.maximum(d, 2.0)
-        eps = self.epsilon_solvent - (
-            self.epsilon_solvent - self.epsilon_interior
-        ) * jnp.clip(burial, 0.0, 1.0)
-        decay = jnp.exp(-safe_d / self.screening_length)
-        pair = charges[None, :] * decay * mask / (eps[:, None] * safe_d)
-        return COULOMB_K * pair.sum(-1)
+    params: PKaParams = PKaParams()
 
     def __call__(
         self,
@@ -192,38 +267,9 @@ class ElectrostaticPKaSelectivity(LossTerm):
             target_full = target_full[jnp.asarray(self.epitope_idx)]
         target_charge = target_full @ SIDECHAIN_CHARGE
 
-        # Squared distances with an epsilon before the sqrt. `jnp.linalg.norm`
-        # of a zero vector -- which the diagonal of a self-distance matrix
-        # always contains -- has a NaN derivative, and masking the diagonal to
-        # jnp.inf afterwards does not help because inf poisons the backward
-        # pass too. Self-interaction is removed multiplicatively instead.
-        def dists(a, b):
-            delta = a[:, None, :] - b[None, :, :]
-            return jnp.sqrt((delta * delta).sum(-1) + 1e-6)
-
-        d_bb = dists(binder_cb, binder_cb)
-        off_diag = 1.0 - jnp.eye(binder_len)
-        d_bt = dists(binder_cb, target_cb)
-        all_bt = jnp.ones_like(d_bt)
-
-        # Free state: binder environment only. Burial is computed first, since
-        # it sets the dielectric the Coulomb sum is screened by.
-        burial_free = self._burial(d_bb, off_diag)
-        e_free = self._coulomb(d_bb, binder_charge, off_diag, burial_free)
-        # Bound state: add the target's contribution. The shift between the two
-        # is then exactly the target's electrostatic effect.
-        burial_bound = burial_free + self._burial(d_bt, all_bt)
-        e_bound = e_free + self._coulomb(
-            d_bt, target_charge, all_bt, burial_bound
+        pka_free, pka_bound = predict_pka(
+            binder_cb, target_cb, binder_charge, target_charge, self.params
         )
-
-        # Linear readout, as in JustHISpKa. Favourable (negative) electrostatic
-        # energy for the +1 form raises pKa; burial lowers it.
-        def to_pka(energy, burial):
-            return HIS_MODEL_PKA - energy / RT_LN10 - self.alpha_desolv * burial
-
-        pka_free = to_pka(e_free, burial_free)
-        pka_bound = to_pka(e_bound, burial_bound)
 
         per_site = linkage_selectivity(
             pka_bound, pka_free, self.ph_high, self.ph_low
