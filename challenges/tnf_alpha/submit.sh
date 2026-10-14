@@ -24,6 +24,24 @@ mkdir -p "$CHALLENGE/logs" "$CHALLENGE/designs"
 # CUDA"), which kills the job minutes in -- see LOG.md entry 10.
 EXCLUDE="${EXCLUDE:-bp1-gpu031}"
 
+# Cold-cache guard. Boltz-2 lazily downloads a 2.2 GB checkpoint and a 1.8 GB
+# CCD tarball into one shared cache on first use. Launching several jobs at once
+# against an empty cache makes them race on the same paths: one wins and the
+# rest read half-written files, failing with "PytorchStreamReader failed
+# reading zip archive" or "CCD component ASP not found!". That cost three of
+# four jobs on the first launch -- see LOG.md entry 11. Populate the cache with
+# a single job, then launch the rest.
+CACHE="${MOSAIC_CACHE_DIR:-$HOME/.cache/mosaic}/boltz"
+if [ ! -s "$CACHE/boltz2_conf.ckpt" ] || [ ! -s "$CACHE/mols/ASP.pkl" ]; then
+  if [ "${WARMUP:-0}" != "1" ]; then
+    echo "Boltz-2 cache at $CACHE is cold or incomplete." >&2
+    echo "Launch ONE job first to populate it:  WARMUP=1 $0 $POOL $N_DESIGNS $LENGTH" >&2
+    echo "Then submit the rest once $CACHE/mols/ASP.pkl exists." >&2
+    exit 1
+  fi
+  echo "WARMUP: cache is cold; this job will populate it. Submit others after it loads."
+fi
+
 sbatch -A cosc020762 -p cnu -c 8 --mem=64G -t 6:00:00 --gpus=a100:1 \
   --exclude="$EXCLUDE" \
   -J "tnf-$POOL-L$LENGTH" \

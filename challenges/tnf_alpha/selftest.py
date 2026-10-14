@@ -272,8 +272,52 @@ def test_linkage_agreement():
     )
 
 
+def test_nocys_roundtrip():
+    """The simplex width the optimizer must use, and how to decode it.
+
+    `NoCys` asserts a 19-wide input and reinserts a zero column at the cysteine
+    index, so `design.py` has to initialize at 19 and decode through
+    `NoCys.sequence`. Getting this wrong cost a 7-minute GPU job that failed
+    only after Boltz-2 had finished loading, inside the first optimizer step.
+    """
+    print("NoCys simplex width and decode")
+    from mosaic.losses.transformations import NoCys
+
+    n = 12
+    narrow = jax.nn.softmax(jax.random.gumbel(jax.random.key(0), (n, 19)))
+    check(
+        "optimizer simplex is 19-wide, not 20",
+        narrow.shape[-1] == 19,
+        f"shape {narrow.shape}",
+    )
+    wide = NoCys.sequence(narrow)
+    cys = TOKENS.index("C")
+    check(
+        "sequence() restores the 20-token alphabet",
+        wide.shape == (n, 20),
+        f"{narrow.shape} -> {wide.shape}",
+    )
+    check(
+        "cysteine column is exactly zero",
+        float(jnp.abs(wide[:, cys]).max()) == 0.0,
+        f"max p(Cys) = {float(jnp.abs(wide[:, cys]).max()):.1e}",
+    )
+    check(
+        "probability mass is preserved",
+        bool(jnp.allclose(wide.sum(-1), 1.0, atol=1e-5)),
+        f"row sums {float(wide.sum(-1).min()):.4f}-{float(wide.sum(-1).max()):.4f}",
+    )
+    decoded = "".join(TOKENS[j] for j in np.asarray(wide).argmax(-1))
+    check(
+        "decoded sequence contains no cysteine",
+        "C" not in decoded,
+        f"{decoded}",
+    )
+
+
 def main():
-    for fn in (test_target, test_gravity, test_ph_physics, test_linkage_agreement):
+    for fn in (test_target, test_gravity, test_ph_physics,
+               test_linkage_agreement, test_nocys_roundtrip):
         fn()
     print()
     if FAILURES:

@@ -149,8 +149,14 @@ def main():
     with out_path.open("a") as fh:
         for i in range(args.n_designs):
             key = jax.random.key(args.seed * 10_000 + i)
+            # The objective is wrapped in NoCys, which takes a 19-dim simplex
+            # and reinserts a zero column at the cysteine index. So the
+            # optimizer works in 19 dimensions, and the result has to be mapped
+            # back to the 20-token alphabet before decoding -- as NoCys's own
+            # docstring warns. Initialising at 20 instead trips an assertion
+            # ~7 minutes in, after the model has loaded.
             x0 = jax.nn.softmax(
-                0.5 * jax.random.gumbel(key, shape=(args.binder_length, 20))
+                0.5 * jax.random.gumbel(key, shape=(args.binder_length, 19))
             )
             _, pssm = simplex_APGM(
                 loss_function=objective,
@@ -160,7 +166,9 @@ def main():
                 momentum=args.momentum,
                 key=jax.random.fold_in(key, 1),
             )
-            seq = "".join(TOKENS[j] for j in np.asarray(pssm).argmax(-1))
+            full_pssm = NoCys.sequence(pssm)
+            seq = "".join(TOKENS[j] for j in np.asarray(full_pssm).argmax(-1))
+            assert "C" not in seq, "NoCys decode leaked a cysteine"
             record = {
                 "name": f"tnf_{args.pool}_L{args.binder_length}_s{args.seed}_{i}",
                 "sequence": seq,

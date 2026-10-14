@@ -361,10 +361,79 @@ grepping only for progress lines would have sat silent through this.
 
 ---
 
+## 11 — All four design jobs failed: a cold-cache race and a real bug
+
+**When** 2026-10-14 17:17–17:30. Jobs 19399013/14/15 and 19399131 all FAILED.
+Zero designs written. Relaunched as **19399317** (ph), **19399318** (ph_hot),
+**19399319** (physics), **19399320** (affinity).
+
+**Why it looked like GPU contention and was not** All four were on one node, each
+requesting `XLA_PYTHON_CLIENT_MEM_FRACTION=0.95`, so memory contention was the
+obvious suspect. The tracebacks said otherwise — two separate causes.
+
+### Cause A — cold-cache download race (3 jobs)
+
+Boltz-2 lazily downloads a 2.2 GB checkpoint and a 1.8 GB CCD tarball into one
+shared cache (`~/.cache/mosaic/boltz`) on first use. Four jobs started against an
+empty cache and raced on the same paths. Cache mtimes tell the story: `mols.tar`
+17:22, `boltz2_conf.ckpt` 17:23, `boltz2_aff.ckpt` 17:24, `mols/` still
+extracting at 17:25.
+
+- 19399131 read `boltz2_conf.ckpt` while it was being written:
+  `PytorchStreamReader failed reading zip archive: failed finding central
+  directory`.
+- 19399014 and 19399015 read `mols/` mid-extraction: `ValueError: CCD component
+  ASP not found!` — ASP simply had not been extracted yet.
+
+Nothing was permanently corrupt. The cache is now complete (`ASP.pkl` present,
+45,227 files, count stable), populated by the one job that won the race.
+
+**Fix** `submit.sh` now refuses to submit against a cold or incomplete cache and
+tells you to run one `WARMUP=1` job first.
+
+### Cause B — a real bug in design.py (the 4th job, and all of them in truth)
+
+19399013 survived the race, loaded Boltz-2, and then died **7m28s in** on the
+first optimizer step:
+
+```
+mosaic/losses/transformations.py line 17, in __call__
+    assert seq.shape[-1] == 19
+AssertionError
+```
+
+`NoCys` takes a **19**-wide simplex and reinserts a zero column at the cysteine
+index, so the optimizer must work in 19 dimensions and the result must be mapped
+back through `NoCys.sequence` before decoding. `design.py` initialized at 20 and
+decoded as 20. Its docstring says so explicitly: *"be sure to call
+`loss.sequence(...)` after optimization to get the final sequence!"* — I had read
+the class, used it, and missed the contract.
+
+Had the cache race not happened, all four jobs would have failed this way
+anyway. The race merely hid it behind a different error.
+
+**Fix** Initialize at `(binder_length, 19)`, decode via `NoCys.sequence`, and
+assert the decoded sequence contains no cysteine. Plus five new `selftest.py`
+checks covering the simplex width, the restored alphabet, the zeroed cysteine
+column, mass preservation, and a cysteine-free decode — 21 checks total, seconds
+to run.
+
+**Lessons**
+- A loss wrapper can change the *shape contract of the optimizer*. Check what a
+  wrapper expects, not just what it does.
+- This failed after the model had loaded, so each attempt cost ~7 GPU-minutes to
+  learn one assertion. Anything checkable without a GPU belongs in `selftest.py`,
+  and `selftest.py` should be run before every submit.
+- Lazy shared caches and parallel job launches do not mix. Warm the cache with
+  one job.
+
+---
+
 ## Open / next
 
-- Designs in flight (entry 10): 19399013 / 19399014 / 19399015 / 19399131.
+- Designs in flight (entry 11): 19399317 / 19399318 / 19399319 / 19399320.
   32 sequences across four pools; more seeds once these land.
+- Run `$PY -I selftest.py` before every design submit.
 - Repredict designs, populate Tier 2 scores on the JSONL records, then
   `$PY -I rank.py designs/*.jsonl --out submission.csv --limit 40`.
 - Decide the submission split across the four pools.
