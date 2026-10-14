@@ -186,8 +186,17 @@ class TotalHistidineBudget(LossTerm):
     # fight InterfaceHistidineCount over the last fraction of a residue.
     tolerance: float = 1.5
 
-    def __call__(self, soft_sequence: Float[Array, "N 20"], key=None):
-        total = soft_sequence[:, IDX_HIS].sum()
+    # Signature must match the sibling terms: these are composed into one
+    # LinearCombination alongside structure-prediction losses, which calls every
+    # member with (sequence, output, key). A sequence-only signature here cost
+    # five GPU jobs (LOG.md entry 15).
+    def __call__(
+        self,
+        sequence: Float[Array, "N 20"],
+        output: StructureModelOutput,
+        key,
+    ):
+        total = sequence[:, IDX_HIS].sum()
         excess = jax.nn.relu(total - (self.target_count + self.tolerance))
         return excess**2, {"total_his": total, "excess_his": excess}
 

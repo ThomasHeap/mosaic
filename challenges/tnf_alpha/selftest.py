@@ -71,9 +71,20 @@ def fake_output(target_offset: float):
     full = np.zeros((B + T, 20), dtype=np.float32)
     full[:, TOKENS.index("A")] = 1.0
 
+    # A distogram consistent with the geometry above, rather than noise: bins
+    # spanning 2-22 A and logits peaked at each pair's true C-beta distance.
+    # Terms that read the distogram then see the same structure the
+    # coordinate-space terms do, so the two cannot silently disagree.
+    bins = np.linspace(2.0, 22.0, 64, dtype=np.float32)
+    cb = np.asarray(pseudo_cb(jnp.asarray(bb)))
+    d = np.linalg.norm(cb[:, None, :] - cb[None, :, :], axis=-1)
+    logits = -((d[:, :, None] - bins[None, None, :]) ** 2) / 2.0
+
     class Output:
         backbone_coordinates = jnp.asarray(bb)
         full_sequence = jnp.asarray(full)
+        distogram_logits = jnp.asarray(logits)
+        distogram_bins = jnp.asarray(bins)
 
     return Output()
 
@@ -315,9 +326,69 @@ def test_nocys_roundtrip():
     )
 
 
+def test_loss_call_conventions():
+    """Every composed loss term must accept (sequence, output, key).
+
+    These terms are summed into one LinearCombination alongside
+    structure-prediction losses, and that calls each member with `sequence=`
+    and `output=`. A sequence-only signature raises TypeError on the first
+    optimizer step -- after the model has loaded -- which cost five GPU jobs.
+    Checked by signature *and* by calling each term for real.
+    """
+    print("loss term call conventions")
+    import inspect
+
+    from gravity import GravitationalEpitope
+    from ph_physics import ElectrostaticPKaSelectivity
+    from ph_switch import (
+        BuriedHistidinePacking,
+        InterfaceHistidineCount,
+        NoHistidineOutsideInterface,
+        TotalHistidineBudget,
+    )
+
+    terms = {
+        "InterfaceHistidineCount": InterfaceHistidineCount(),
+        "BuriedHistidinePacking": BuriedHistidinePacking(),
+        "NoHistidineOutsideInterface": NoHistidineOutsideInterface(),
+        "TotalHistidineBudget": TotalHistidineBudget(),
+        "ElectrostaticPKaSelectivity": ElectrostaticPKaSelectivity(),
+        "GravitationalEpitope": GravitationalEpitope(
+            idx=tuple(range(T)), weights=jnp.ones(T)
+        ),
+    }
+    expected = ["self", "sequence", "output", "key"]
+    bad_sig = [n for n, t in terms.items()
+               if list(inspect.signature(type(t).__call__).parameters) != expected]
+    check(
+        "all terms declare (sequence, output, key)",
+        not bad_sig,
+        "all match" if not bad_sig else f"mismatched: {bad_sig}",
+    )
+
+    out = fake_output(8.0)
+    seq = jnp.ones((B, 20)) / 20
+    key = jax.random.key(0)
+    failed = {}
+    for name, term in terms.items():
+        try:
+            # Keyword form is how LinearCombination actually invokes them.
+            value, aux = term(sequence=seq, output=out, key=key)
+            if not bool(jnp.isfinite(jnp.asarray(value)).all()):
+                failed[name] = "non-finite"
+        except Exception as exc:  # noqa: BLE001
+            failed[name] = f"{type(exc).__name__}: {exc}"
+    check(
+        "all terms callable with keyword args and finite",
+        not failed,
+        "all ok" if not failed else f"{failed}",
+    )
+
+
 def main():
     for fn in (test_target, test_gravity, test_ph_physics,
-               test_linkage_agreement, test_nocys_roundtrip):
+               test_linkage_agreement, test_nocys_roundtrip,
+               test_loss_call_conventions):
         fn()
     print()
     if FAILURES:

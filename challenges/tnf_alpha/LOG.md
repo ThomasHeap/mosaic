@@ -627,9 +627,58 @@ concurrent appends to one JSONL can interleave mid-line.
 
 ---
 
+## 15 — Five pH jobs died on a loss-term signature; selftest extended
+
+**When** 2026-10-14 19:15–19:40. Jobs 19401306–19401310 FAILED minutes in.
+19401303/04/05 (all three `affinity`) unaffected and still running. Relaunched
+the pH pools as **19401753–19401757**.
+
+**Error**
+```
+TypeError: TotalHistidineBudget.__call__() got an unexpected keyword argument 'sequence'
+```
+
+**Cause** `TotalHistidineBudget`, added in entry 14 to cap the histidine count,
+was written with a sequence-only signature `(soft_sequence, key=None)` -- copied
+from the `LogPCysteine` example in the mosaic README. But these terms are summed
+into one `LinearCombination` alongside structure-prediction losses, and that
+calls every member with `sequence=` and `output=`. All three sibling terms in
+the same module take `(sequence, output, key)`; only the new one did not.
+
+Only the pH pools use `ph_switch_loss`, which is why `affinity` survived --
+accidental luck from having weighted the fleet toward it for unrelated reasons.
+
+**Fix** Signature matched to its siblings.
+
+**The real fix** `selftest.py` now checks loss-term call conventions two ways:
+by comparing `inspect.signature` across every composed term, and by actually
+invoking each one with keyword arguments and asserting a finite result. That
+catches this class of error in seconds rather than after the model has loaded.
+
+Writing it exposed a weakness in the test fixture too: `fake_output` only
+carried `backbone_coordinates` and `full_sequence`, so the three distogram-based
+terms could never have been exercised. It now also carries `distogram_logits`
+and `distogram_bins`, built from the fixture's own geometry (bins spanning
+2-22 A, logits peaked at each pair's true C-beta distance) rather than noise --
+so the distogram-reading terms and the coordinate-reading terms see the same
+structure and cannot silently disagree. 23 checks, all passing.
+
+**Pattern worth naming.** This is the third failure of the same shape: a
+*contract* mismatch that type-checks fine and only surfaces on a GPU after
+minutes of model loading. First `NoCys` expecting a 19-wide simplex (entry 11),
+then `jnp.inf` masking poisoning a backward pass (entry 5), now a loss-term
+signature. The common lesson is that `selftest.py` must exercise every
+interface this code depends on, with the *same calling convention production
+uses*, because none of these are caught by reading the code.
+
+---
+
 ## Open / next
 
-- Overnight fleet 19401303-19401310 running (entry 14), ~16 designs each.
+- Overnight fleet: 19401303/04/05 (affinity, from 19:00) and 19401753-19401757
+  (pH pools, from 19:40) -- see entries 14-15.
+- Run `$PY -I selftest.py` before every submit. It has now caught three
+  contract bugs that only showed up on a GPU.
 - **In the morning**, in this order:
   1. `grep -h . designs/*.jsonl | wc -l` and check `sharp=` values are near 1.0.
      If they are not, the annealing is still not working and nothing downstream
