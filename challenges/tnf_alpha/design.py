@@ -50,7 +50,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-import mosaic.losses.structure_prediction as sp
+import mosaic.losses.structure_prediction as sp  # noqa: I001
 from mosaic.common import TOKENS
 from mosaic.losses.protein_mpnn import InverseFoldingSequenceRecovery
 from mosaic.losses.transformations import NoCys
@@ -74,6 +74,12 @@ POOLS = {
     # is compared against the proxy pools rather than replacing them.
     "physics": dict(his_target=2.0, physics=True),
 }
+
+# Stamped onto every design record. Bump when the objective or schedule changes
+# in a way that makes older designs incomparable, so a stale file cannot be
+# globbed into a submission unnoticed -- four designs from superseded configs
+# had to be quarantined by hand (see designs/legacy/README.md).
+CONFIG = "nipah-recipe+hiscap-v1"
 
 # (n_steps, stepsize factor on sqrt(L), momentum, proximal scale, logspace).
 # Stage 1 explores; stages 2-3 sharpen via negative entropic regularization.
@@ -217,61 +223,72 @@ def main():
     started = time.monotonic()
     budget_s = args.time_budget * 3600.0
     durations = []
-    with out_path.open("a") as fh:
-        for i in range(args.n_designs):
-            if budget_s:
-                elapsed = time.monotonic() - started
-                # Reserve the longest design seen so far, so the loop never
-                # starts one it cannot finish before the wall.
-                reserve = max(durations) if durations else 0.0
-                if elapsed + reserve > budget_s:
-                    print(f"time budget reached ({elapsed / 3600:.2f} h of "
-                          f"{args.time_budget} h, reserving "
-                          f"{reserve / 60:.1f} min); stopping after "
-                          f"{len(durations)} designs", flush=True)
-                    break
-            design_started = time.monotonic()
-            key = jax.random.key(args.seed * 10_000 + i)
-            # Gumbel init scaled by a random temperature, so the designs in a
-            # pool start from genuinely different places rather than the same
-            # near-uniform simplex.
-            k_temp, k_gumbel, k_opt = jax.random.split(key, 3)
-            temperature = jax.random.uniform(k_temp, minval=0.25, maxval=0.75)
-            x = jax.nn.softmax(
-                temperature
-                * jax.random.gumbel(k_gumbel, shape=(args.binder_length, 19))
-            )
 
-            print(f"[design {i + 1}/{args.n_designs}]", flush=True)
-            x = anneal(objective, x, args.binder_length, k_opt,
-                       stage_scale=args.stage_scale)
+    def append(record):
+        """Open, append, close -- one handle per design, not one per run.
 
-            # With sharpening stages the final PSSM is the answer; an earlier
-            # "best" iterate would discard the annealing.
-            full_pssm = NoCys.sequence(x)
-            seq = "".join(TOKENS[j] for j in np.asarray(full_pssm).argmax(-1))
-            assert "C" not in seq, "NoCys decode leaked a cysteine"
-
-            record = {
-                "name": f"tnf_{args.pool}_L{args.binder_length}_s{args.seed}_{i}",
-                "sequence": seq,
-                "molecule_class": "protein",
-                "pool": args.pool,
-                "his_target": his_target,
-                "physics": physics,
-                "n_his": seq.count("H"),
-                # Sharpness of the final PSSM: how close the annealing got to
-                # one-hot. Near 1.0 is converged; well below means the reported
-                # sequence is an argmax over a still-fuzzy distribution.
-                "pssm_max_mean": float(np.asarray(full_pssm).max(-1).mean()),
-            }
-            durations.append(time.monotonic() - design_started)
-            record["seconds"] = round(durations[-1], 1)
+        Holding a single handle open for an 11-hour run means anything that
+        unlinks the file (housekeeping, a stray rm) leaves the process writing
+        to an unlinked inode, and every later design is lost silently at exit.
+        Reopening per design costs nothing and recreates the file if it is gone.
+        """
+        with out_path.open("a") as fh:
             fh.write(json.dumps(record) + "\n")
-            fh.flush()
-            print(f"[{i + 1}/{args.n_designs}] {record['name']} "
-                  f"nHis={record['n_his']} "
-                  f"sharp={record['pssm_max_mean']:.3f} {seq}", flush=True)
+
+    for i in range(args.n_designs):
+        if budget_s:
+            elapsed = time.monotonic() - started
+            # Reserve the longest design seen so far, so the loop never
+            # starts one it cannot finish before the wall.
+            reserve = max(durations) if durations else 0.0
+            if elapsed + reserve > budget_s:
+                print(f"time budget reached ({elapsed / 3600:.2f} h of "
+                      f"{args.time_budget} h, reserving "
+                      f"{reserve / 60:.1f} min); stopping after "
+                      f"{len(durations)} designs", flush=True)
+                break
+        design_started = time.monotonic()
+        key = jax.random.key(args.seed * 10_000 + i)
+        # Gumbel init scaled by a random temperature, so the designs in a
+        # pool start from genuinely different places rather than the same
+        # near-uniform simplex.
+        k_temp, k_gumbel, k_opt = jax.random.split(key, 3)
+        temperature = jax.random.uniform(k_temp, minval=0.25, maxval=0.75)
+        x = jax.nn.softmax(
+            temperature
+            * jax.random.gumbel(k_gumbel, shape=(args.binder_length, 19))
+        )
+
+        print(f"[design {i + 1}/{args.n_designs}]", flush=True)
+        x = anneal(objective, x, args.binder_length, k_opt,
+                   stage_scale=args.stage_scale)
+
+        # With sharpening stages the final PSSM is the answer; an earlier
+        # "best" iterate would discard the annealing.
+        full_pssm = NoCys.sequence(x)
+        seq = "".join(TOKENS[j] for j in np.asarray(full_pssm).argmax(-1))
+        assert "C" not in seq, "NoCys decode leaked a cysteine"
+
+        record = {
+            "name": f"tnf_{args.pool}_L{args.binder_length}_s{args.seed}_{i}",
+            "sequence": seq,
+            "molecule_class": "protein",
+            "pool": args.pool,
+            "his_target": his_target,
+            "physics": physics,
+            "n_his": seq.count("H"),
+            "config": CONFIG,
+            # Sharpness of the final PSSM: how close the annealing got to
+            # one-hot. Near 1.0 is converged; well below means the reported
+            # sequence is an argmax over a still-fuzzy distribution.
+            "pssm_max_mean": float(np.asarray(full_pssm).max(-1).mean()),
+        }
+        durations.append(time.monotonic() - design_started)
+        record["seconds"] = round(durations[-1], 1)
+        append(record)
+        print(f"[{i + 1}/{args.n_designs}] {record['name']} "
+              f"nHis={record['n_his']} "
+              f"sharp={record['pssm_max_mean']:.3f} {seq}", flush=True)
 
     print(f"wrote {out_path}")
 

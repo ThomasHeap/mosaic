@@ -673,10 +673,64 @@ uses*, because none of these are caught by reading the code.
 
 ---
 
+## 16 — Quarantined stale designs; deleted the live jobs' output files
+
+**When** 2026-10-14 19:45–20:05. Fleet restarted as **19401911–19401918**.
+
+### Stale designs were a live submission hazard
+
+Four design files written 17:57-17:59 by superseded configs were still sitting
+in `designs/`, where `rank.py designs/*.jsonl` would have globbed them:
+
+| design | problem |
+|---|---|
+| `tnf_ph_hot_L75_s0_0` | **12 His in 75 (16%)** -- the runaway from entry 14 |
+| `tnf_ph_L75_s0_0` | pre-Nipah objective: no confidence terms, diverging optimizer |
+| `tnf_physics_L75_s0_0`, `tnf_affinity_L65_s0_0` | predate `pssm_max_mean` |
+
+The `ph_hot` one is the instructive case: at 16% histidine it falls *below*
+`rank.py`'s 25% homopolymer guard, so it would have been accepted silently. A
+filter tuned to catch the extreme case does not catch the merely-bad one.
+
+Moved to `designs/legacy/` with a README, so the glob cannot reach them. Added a
+`config` provenance stamp to every design record and a loud `rank.py` warning
+for records lacking it, so a superseded run cannot enter a submission unnoticed
+again.
+
+### Then I deleted the output files of all seven running jobs
+
+While clearing up I ran `find designs -name "*.jsonl" -size 0 -delete`, assuming
+zero-byte files were leftovers from cancelled jobs. They were not: they were the
+**open output files of the seven jobs then running**, empty only because no
+design had finished yet (each takes ~40 min).
+
+`design.py` held `out_path.open("a")` for the entire run, so those processes were
+left writing to unlinked inodes. Every design they went on to produce would have
+been lost silently at exit, with the logs showing success throughout.
+
+Caught by checking completed-design counts before restarting: all seven were at
+zero, so **no finished design was actually lost** -- only ~22 min of compute on
+three jobs and ~5 min on four. Restarted immediately.
+
+**Fix** `design.py` now opens, appends and closes once per design instead of
+holding one handle for eleven hours. Reopening costs nothing, recreates the file
+if it has gone, and means a mistake like this loses one design at most.
+
+**Lessons**
+- An empty file is not evidence of an abandoned job. Check for an open writer
+  before deleting anything inside a directory that running jobs write to.
+- Prefer append-and-close over a long-lived handle for unattended runs; the
+  failure mode of a long-lived handle is silent data loss, not an error.
+- The habit that saved this was checking what had actually been produced before
+  restarting, rather than assuming either the best or the worst.
+
+---
+
 ## Open / next
 
-- Overnight fleet: 19401303/04/05 (affinity, from 19:00) and 19401753-19401757
-  (pH pools, from 19:40) -- see entries 14-15.
+- Overnight fleet: **19401911-19401918** (8 jobs, from 20:00), 12 h wall / 11 h
+  design budget -- see entry 16. Earlier fleets were restarted twice, for a loss
+  objective bug (entry 15) and for the deleted output files (entry 16).
 - Run `$PY -I selftest.py` before every submit. It has now caught three
   contract bugs that only showed up on a GPU.
 - **In the morning**, in this order:

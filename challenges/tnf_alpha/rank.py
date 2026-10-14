@@ -118,6 +118,17 @@ def main():
     for r, problems in rejected:
         print(f"  reject {r['name']}: {'; '.join(problems)}")
 
+    # Designs with no provenance stamp came from a config predating it, and
+    # cannot be compared against the rest. Loud, because the failure mode is a
+    # stale file silently entering a submission.
+    unstamped = [r["name"] for r, _ in kept if not r.get("config")
+                 and r.get("pool") != "hisscan"]
+    if unstamped:
+        print(f"WARNING: {len(unstamped)} designs carry no `config` stamp and "
+              f"predate the current objective: {unstamped[:5]}"
+              f"{' ...' if len(unstamped) > 5 else ''}")
+        print("  Check they are not from a superseded run before submitting.")
+
     unscored = sum(1 for r, _ in kept if "selectivity_log10" not in r)
     if unscored:
         print(f"WARNING: {unscored}/{len(kept)} designs have no Tier 2 pH score; "
