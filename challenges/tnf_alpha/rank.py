@@ -16,6 +16,16 @@ from pathlib import Path
 VALID_CLASSES = {"protein", "nanobody", "scfv", "fab_kappa", "fab_lambda"}
 MIN_LEN, MAX_LEN = 10, 250
 
+# C-alpha RMSD between the binder predicted alone and in complex. The Nipah
+# authors discarded designs that "adopted wildly different conformations" in
+# isolation; a binder that only folds when bound is unlikely to express. Applied
+# only when rescore.py has measured it -- an unmeasured design is not rejected,
+# it is merely unranked.
+MAX_MONOMER_COMPLEX_RMSD = 5.0
+# How close the annealed PSSM got to one-hot. Well below 1.0 means the reported
+# sequence is an argmax over a still-fuzzy distribution.
+MIN_PSSM_SHARPNESS = 0.8
+
 
 def load(paths):
     seen_seq = {}
@@ -48,6 +58,14 @@ def check(r):
         problems.append("contains cysteine")
     if set(seq) - set("ARNDCQEGHILKMFPSTWYV"):
         problems.append("non-standard residue")
+    rmsd = r.get("monomer_complex_rmsd")
+    if rmsd is not None and float(rmsd) > MAX_MONOMER_COMPLEX_RMSD:
+        problems.append(
+            f"monomer/complex RMSD {float(rmsd):.1f} A > {MAX_MONOMER_COMPLEX_RMSD}"
+        )
+    sharp = r.get("pssm_max_mean")
+    if sharp is not None and float(sharp) < MIN_PSSM_SHARPNESS:
+        problems.append(f"PSSM not sharpened ({float(sharp):.2f})")
     return problems
 
 
