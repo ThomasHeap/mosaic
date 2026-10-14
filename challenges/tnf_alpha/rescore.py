@@ -98,7 +98,8 @@ def ranking_scores(pred, binder_len: int, key) -> dict:
     return scores
 
 
-def rescore_one(model, record, *, recycling_steps, sampling_steps, key, mouse):
+def rescore_one(model, record, *, recycling_steps, sampling_steps, key, mouse,
+                struct_dir=None):
     seq = record["sequence"]
     pssm_complex = None  # full-sequence features carry identity already
     binder = TargetChain(seq, use_msa=False)
@@ -123,6 +124,20 @@ def rescore_one(model, record, *, recycling_steps, sampling_steps, key, mouse):
     out.update(ranking_scores(pred_complex, len(seq), k1))
     out["plddt_complex"] = float(np.asarray(pred_complex.plddt).mean())
     out["plddt_monomer"] = float(np.asarray(pred_mono.plddt).mean())
+    # Keep the structures: the histidine scan (hisscan.py) needs the predicted
+    # complex backbone, and refolding every design again on a GPU just to
+    # recover it would be wasteful when the scan itself is backbone-only.
+    if struct_dir is not None:
+        struct_dir = Path(struct_dir)
+        struct_dir.mkdir(parents=True, exist_ok=True)
+        for tag, st in (("complex", pred_complex.st), ("monomer", pred_mono.st)):
+            path = struct_dir / f"{record['name']}_{tag}.pdb"
+            try:
+                st.write_pdb(str(path))
+                out[f"{tag}_pdb"] = str(path)
+            except Exception as exc:  # noqa: BLE001
+                out[f"{tag}_pdb_error"] = f"{type(exc).__name__}: {exc}"
+
     out["monomer_complex_rmsd"] = ca_rmsd(
         pred_complex.st, pred_complex.st[0][0].name,
         pred_mono.st, pred_mono.st[0][0].name,
@@ -173,6 +188,8 @@ def main():
     ap.add_argument("--no-mouse", action="store_true",
                     help="skip the mouse cross-reactivity refold (saves ~1/3)")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--struct-dir", type=Path, default=Path("structures"),
+                    help="where to write predicted complex/monomer PDBs")
     args = ap.parse_args()
 
     if not jax.devices()[0].platform == "gpu":
@@ -204,6 +221,7 @@ def main():
                     recycling_steps=args.recycling_steps,
                     sampling_steps=args.sampling_steps,
                     key=key, mouse=not args.no_mouse,
+                    struct_dir=args.struct_dir,
                 )
             except Exception as exc:  # noqa: BLE001 - keep the sweep going
                 print(f"  [{i + 1}/{len(records)}] {record['name']} FAILED: "

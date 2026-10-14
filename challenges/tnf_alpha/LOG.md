@@ -550,12 +550,97 @@ syntax-checking the submitter.*
 
 ---
 
+## 14 — Histidine runaway; the scan route; overnight fleet
+
+**When** 2026-10-14 18:30–19:10. Probe **19400994** completed. Fleet
+**19401303–19401310** launched (8 jobs, 12 h wall, 11 h design budget).
+
+### The in-loop pH objective produced a histidine homopolymer
+
+Probe 19400994's finished design:
+
+```
+nHis=24  sharp=0.104
+PPGTSSSHQEHNAHHWGHIEHHIEHYPHHLDHILKHLLHRLKHMPHHPHHHLHHQHHSLWGIEHWIEIWGRPTNP
+```
+
+**24 histidines in 75 residues, 32%**, against a target of 3. Cause: 
+`InterfaceHistidineCount` penalizes `(sum_i p_contact(i) * p_His(i) - 3)^2`, and
+while the PSSM is diffuse each position carries only a small `p_His`, so the
+least-effort way to raise that sum is to push histidine up *everywhere* rather
+than place a few where contact is high. `NoHistidineOutsideInterface` at weight
+0.3 discourages the same thing but was far too weak to hold it.
+
+`sharp=0.104` against uniform 0.053 also means the PSSM barely annealed -- but
+that is an artifact of `--stage-scale 0.1` giving only 7 sharpening steps where a
+real run gets 65. The `pssm_max_mean` field added for exactly this caught it.
+
+**Fixes.** `TotalHistidineBudget` caps the *global* count (24 His -> penalty 380,
+dominant; 4 His -> 0), weighted above the count term because a runaway
+composition ruins a design outright while missing the interface target merely
+weakens the switch. `rank.py` also now rejects any design where one amino acid
+exceeds 25% of the sequence -- a guard worth having regardless of cause, since
+the high ProteinMPNN weight is itself known to encourage homopolymers.
+
+### Restricting histidines to the epitope: why not in-loop, and what instead
+
+The obvious fix is to allow histidine only at epitope-contacting positions. That
+cannot be done during design: **which binder positions contact the epitope is an
+output of optimization, not an input.** At initialization all positions are
+candidates and `mosaic`'s masks are static, so pre-assigning them means
+dictating where the paratope goes before the fold exists.
+
+After the fact it is trivial, and that ordering is what the lab actually does --
+pH-dependent antibodies are made by finding a binder and then histidine-scanning
+its interface, not by designing histidines in from the start.
+
+`hisscan.py` implements it, and it is nearly free: `predict_pka` is backbone-only
+by construction (virtual C-beta, no sidechains, because design-time features
+have none), so a substitution changes the charge vector and nothing else. No
+refolding, no GPU. Validated on 1TNF with chain A as a stand-in binder: 69
+interface positions, best triple-histidine +0.67 log10 at [96, 97, 106],
+clustered on one patch as expected.
+
+Caveat recorded in the module: the scan says nothing about whether a histidine is
+*structurally* tolerated, so top variants must be refolded (`--emit` writes them
+as records for `rescore.py`). And per the linkage analysis, histidines are
+restricted to the interface but the acidic neighbours that raise `pKa_free` are
+not restricted at all, since they need not be at contact positions.
+
+### Fleet
+
+Weighted toward `affinity` (3 of 8 jobs), because those carry no histidine risk
+and feed the scan route. This also de-risks criterion #1: if the in-loop pH terms
+misbehave again, affinity designs plus scanning still delivers it. The `ph`,
+`ph_hot` and `physics` pools run with the new cap for comparison.
+
+An earlier 17-job fleet was cancelled wholesale: 9 of those jobs predated the
+histidine cap and would have spent the night producing homopolymers, and the
+footprint was an unfair share of a shared cluster. 8 jobs against ~16 A100s is
+reasonable. Only A100s are viable -- a 390-residue complex at 0.95 memory
+fraction will not fit the idle 2080s and 3090s.
+
+`design.py` now takes `--time-budget` and stops starting designs it cannot
+finish, reserving the longest observed duration, so a 12 h allocation is filled
+without anything being killed mid-design. Output paths include the seed, since
+concurrent appends to one JSONL can interleave mid-line.
+
+---
+
 ## Open / next
 
-- 32 designs in flight: 19400709 / 19400710 / 19400711 / 19400712 (entry 13).
-  Boltz-2 is viable here at ~7.6 s/step, so the ESMFold2 fallback is not needed.
-- Check the finished runs for low ProteinMPNN sequence recovery and an
-  unsharpened PSSM (entry 13) before trusting any design.
+- Overnight fleet 19401303-19401310 running (entry 14), ~16 designs each.
+- **In the morning**, in this order:
+  1. `grep -h . designs/*.jsonl | wc -l` and check `sharp=` values are near 1.0.
+     If they are not, the annealing is still not working and nothing downstream
+     is meaningful.
+  2. `./submit_rescore.sh designs/affinity_*.jsonl` (saves structures)
+  3. `python -I hisscan.py designs/rescored.jsonl --emit designs/hisscan_variants.jsonl`
+  4. `./submit_rescore.sh designs/hisscan_variants.jsonl` to refold the variants
+  5. `python -I rank.py designs/rescored.jsonl --out submission.csv --limit 40`
+- Still unverified: whether ProteinMPNN sequence_recovery rises during a full
+  165-step run. It sat at 0.05-0.09 throughout both probes, which were too short
+  to sharpen.
 - Run `$PY -I selftest.py` before every design submit.
 - Repredict designs, populate Tier 2 scores on the JSONL records, then
   `$PY -I rank.py designs/*.jsonl --out submission.csv --limit 40`.

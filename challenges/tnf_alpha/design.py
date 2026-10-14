@@ -41,6 +41,7 @@ Usage:
 import argparse
 import json
 import os
+import time
 from pathlib import Path
 
 os.environ.setdefault("XLA_PYTHON_CLIENT_MEM_FRACTION", "0.95")
@@ -166,7 +167,14 @@ def anneal(objective, x, binder_length, key, verbose=True, stage_scale=1.0):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pool", choices=sorted(POOLS), default="ph")
-    ap.add_argument("--n-designs", type=int, default=8)
+    ap.add_argument("--n-designs", type=int, default=8,
+                    help="upper bound; --time-budget usually stops first")
+    # Each worker loops until its budget runs out rather than doing a fixed
+    # count, as the Nipah workers did. A fixed count either wastes the tail of
+    # an allocation or gets killed mid-design at the wall; this fills the
+    # allocation and always stops cleanly. 0 disables.
+    ap.add_argument("--time-budget", type=float, default=0.0,
+                    help="hours; stop starting new designs past this")
     ap.add_argument("--binder-length", type=int, default=75)
     ap.add_argument("--num-samples", type=int, default=4)
     ap.add_argument("--gravity-weight", type=float, default=1.0)
@@ -201,9 +209,28 @@ def main():
         num_samples=args.num_samples,
     )
 
-    out_path = args.out / f"{args.pool}_L{args.binder_length}.jsonl"
+    # Seed is in the filename: several jobs run the same pool/length overnight,
+    # and concurrent appends to one file can interleave mid-line.
+    out_path = (
+        args.out / f"{args.pool}_L{args.binder_length}_s{args.seed}.jsonl"
+    )
+    started = time.monotonic()
+    budget_s = args.time_budget * 3600.0
+    durations = []
     with out_path.open("a") as fh:
         for i in range(args.n_designs):
+            if budget_s:
+                elapsed = time.monotonic() - started
+                # Reserve the longest design seen so far, so the loop never
+                # starts one it cannot finish before the wall.
+                reserve = max(durations) if durations else 0.0
+                if elapsed + reserve > budget_s:
+                    print(f"time budget reached ({elapsed / 3600:.2f} h of "
+                          f"{args.time_budget} h, reserving "
+                          f"{reserve / 60:.1f} min); stopping after "
+                          f"{len(durations)} designs", flush=True)
+                    break
+            design_started = time.monotonic()
             key = jax.random.key(args.seed * 10_000 + i)
             # Gumbel init scaled by a random temperature, so the designs in a
             # pool start from genuinely different places rather than the same
@@ -238,6 +265,8 @@ def main():
                 # sequence is an argmax over a still-fuzzy distribution.
                 "pssm_max_mean": float(np.asarray(full_pssm).max(-1).mean()),
             }
+            durations.append(time.monotonic() - design_started)
+            record["seconds"] = round(durations[-1], 1)
             fh.write(json.dumps(record) + "\n")
             fh.flush()
             print(f"[{i + 1}/{args.n_designs}] {record['name']} "

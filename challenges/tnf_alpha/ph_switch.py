@@ -165,12 +165,40 @@ class NoHistidineOutsideInterface(LossTerm):
         return stray, {"stray_his": stray}
 
 
+class TotalHistidineBudget(LossTerm):
+    """Cap total histidine, not just the contact-weighted count.
+
+    Without this the objective has a cheap exploit. `InterfaceHistidineCount`
+    penalizes (sum_i p_contact(i) * p_His(i) - target)^2, and while the PSSM is
+    still diffuse every position has only a small p_His, so the least-effort way
+    to raise that sum is to push histidine up *everywhere* rather than place a
+    few histidines where contact is high. Probe 19400994 did exactly that: 24
+    histidines in a 75-mer, 32% of the sequence, against a target of 3.
+
+    A 32%-histidine protein will not express or fold, so this is a hard cap on
+    the global count rather than a gentle preference. `NoHistidineOutsideInterface`
+    discourages the same thing but is scaled by per-position contact and was too
+    weak to hold it.
+    """
+
+    target_count: float = 3.0
+    # Slack above the target before the penalty bites, so the term does not
+    # fight InterfaceHistidineCount over the last fraction of a residue.
+    tolerance: float = 1.5
+
+    def __call__(self, soft_sequence: Float[Array, "N 20"], key=None):
+        total = soft_sequence[:, IDX_HIS].sum()
+        excess = jax.nn.relu(total - (self.target_count + self.tolerance))
+        return excess**2, {"total_his": total, "excess_his": excess}
+
+
 def ph_switch_loss(
     epitope_idx: list[int],
     target_count: float = 3.0,
     count_weight: float = 1.0,
     burial_weight: float = 0.5,
     stray_weight: float = 0.3,
+    budget_weight: float = 2.0,
 ):
     """The three terms combined, with weights that worked as a starting point.
 
@@ -184,4 +212,8 @@ def ph_switch_loss(
         )
         + burial_weight * BuriedHistidinePacking(epitope_idx=epitope_idx)
         + stray_weight * NoHistidineOutsideInterface(epitope_idx=epitope_idx)
+        # Weighted above the count term: a runaway histidine fraction ruins a
+        # design outright, whereas missing the interface target merely weakens
+        # the switch.
+        + budget_weight * TotalHistidineBudget(target_count=target_count)
     )

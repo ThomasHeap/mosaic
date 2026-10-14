@@ -25,6 +25,12 @@ MAX_MONOMER_COMPLEX_RMSD = 5.0
 # How close the annealed PSSM got to one-hot. Well below 1.0 means the reported
 # sequence is an argmax over a still-fuzzy distribution.
 MIN_PSSM_SHARPNESS = 0.8
+# Any single amino acid above this fraction is a homopolymer, not a protein.
+# Probe 19400994 produced a 32%-histidine 75-mer before the global histidine cap
+# was added, and the high ProteinMPNN weight is itself known to encourage
+# homopolymers (the Nipah authors note this). Catch it at the gate regardless of
+# which term caused it.
+MAX_SINGLE_AA_FRACTION = 0.25
 
 
 def load(paths):
@@ -63,6 +69,15 @@ def check(r):
         problems.append(
             f"monomer/complex RMSD {float(rmsd):.1f} A > {MAX_MONOMER_COMPLEX_RMSD}"
         )
+    from collections import Counter
+    if seq:
+        aa, count = Counter(seq).most_common(1)[0]
+        frac = count / len(seq)
+        if frac > MAX_SINGLE_AA_FRACTION:
+            problems.append(
+                f"{aa} is {frac:.0%} of the sequence "
+                f"(> {MAX_SINGLE_AA_FRACTION:.0%})"
+            )
     sharp = r.get("pssm_max_mean")
     if sharp is not None and float(sharp) < MIN_PSSM_SHARPNESS:
         problems.append(f"PSSM not sharpened ({float(sharp):.2f})")

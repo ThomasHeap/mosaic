@@ -14,6 +14,15 @@ N_DESIGNS="${2:-8}"
 LENGTH="${3:-75}"
 SEED="${4:-0}"
 
+# Overnight knobs. A100s are the only GPUs with enough memory for a 390-residue
+# complex at 0.95 memory fraction, so the gres request is explicit; cnu and gpu
+# both have some (the idle nodes are 2080s/3090s and will OOM).
+PARTITION="${PARTITION:-cnu}"
+WALL="${WALL:-6:00:00}"
+# Hours of design work before the loop stops starting new designs. Leave ~1 h
+# of headroom under WALL so a long design cannot be killed mid-flight.
+BUDGET="${BUDGET:-0}"
+
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CHALLENGE="$REPO/challenges/tnf_alpha"
 
@@ -50,10 +59,10 @@ if [ ! -s "$CACHE/boltz2_conf.ckpt" ] || [ ! -s "$CACHE/mols/ASP.pkl" ]; then
   echo "WARMUP: cache is cold; this job will populate it. Submit others after it loads."
 fi
 
-sbatch -A cosc020762 -p cnu -c 8 --mem=64G -t 6:00:00 --gpus=a100:1 \
+sbatch -A cosc020762 -p "$PARTITION" -c 8 --mem=64G -t "$WALL" --gpus=a100:1 \
   --exclude="$EXCLUDE" \
   -J "tnf-$POOL-L$LENGTH" \
   -o "$CHALLENGE/logs/%x-%j.out" \
   --wrap "cd $CHALLENGE && XLA_FLAGS='$XLA' $REPO/.venv/bin/python -u design.py \
             --pool $POOL --n-designs $N_DESIGNS --binder-length $LENGTH \
-            --seed $SEED --out $CHALLENGE/designs"
+            --seed $SEED --time-budget $BUDGET --out $CHALLENGE/designs"
