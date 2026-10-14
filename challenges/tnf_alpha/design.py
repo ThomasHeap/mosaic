@@ -37,7 +37,7 @@ from mosaic.proteinmpnn.mpnn import load_mpnn_sol
 from mosaic.structure_prediction import TargetChain
 
 from gravity import tnf_gravitational_loss
-from ph_physics import ElectrostaticPKaSelectivity
+from ph_physics import ElectrostaticPKaSelectivity, load_params
 from ph_switch import ph_switch_loss
 from target import HUMAN_TNF, groove_epitope_idx, tnf_template_chains
 
@@ -87,7 +87,7 @@ def build_objective(
         # selectivity wherever it can find it, and without any pressure to put
         # histidines in the interface at all it has little to work with early on.
         interface = interface + 3.0 * ElectrostaticPKaSelectivity(
-            epitope_idx=tuple(epitope_idx)
+            epitope_idx=tuple(epitope_idx), params=load_params()
         ) + 0.5 * ph_switch_loss(epitope_idx=epitope_idx, target_count=his_target)
     elif his_target is not None:
         interface = interface + 2.0 * ph_switch_loss(

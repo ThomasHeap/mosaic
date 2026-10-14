@@ -81,9 +81,42 @@ over a discrete structure — it has no gradient w.r.t. a soft sequence. Hence:
   target gives pKa_bound — so the shift is exactly the target's contribution, and
   the result goes through the same linkage relation as Tier 2 (they agree to
   1e-4). No labels, no training, no distribution shift, and it optimizes the
-  scored quantity instead of a proxy. Parameters are physically scaled but
-  uncalibrated; `ph_physics.calibrate` documents the 3-parameter fit against
+  scored quantity instead of a proxy. `calibrate.py` fits its scalars against
   PROPKA labels.
+
+  **Calibration result (316 complexes, 1272 histidines, 25% held out).** The
+  model beats the null consistently but not by much:
+
+  | metric (test) | null | fitted |
+  |---|---|---|
+  | MUE(pKa) | 0.821 (constant 6.5) | 0.727 |
+  | MUE(shift) | 0.570 (zero shift) | 0.457 |
+  | MUE(selectivity) | 0.125 | 0.101 |
+  | r(selectivity) | — | +0.379 |
+
+  Read the null column first. Predicting 6.5 for every histidine gets MUE 0.821,
+  so the model's apparent absolute accuracy is mostly "histidine pKa is usually
+  near 6.5" — it adds 11%. It adds most (20%) on the *shift*, which is at least
+  the quantity selectivity depends on, but 0.457 log units of error per site
+  against a per-histidine effect of 0.5–1.2 means error is comparable to signal
+  for one site, and only averages down over 3–4 of them.
+
+  So this stays a gradient direction and `ph_score.py` stays the ranking score.
+  Two things to fix if it is revisited. `screening_length` fits to 3.38 against a
+  lower bound of 3.0 — the fit wants electrostatics to act almost only on
+  immediate neighbours, which together with `alpha_desolv` falling 3.0 → 0.82
+  means it has reduced the SIE continuum it was meant to approximate to
+  something close to a nearest-neighbour model. And `r(sel)` *fell* with fitting
+  (+0.416 → +0.379) while MUE improved, so the least-squares objective is
+  misaligned with the rank correlation the score is actually used for — fit
+  Spearman instead.
+
+  `ph_physics.load_params()` reads the fit, and `design.py`'s `physics` pool uses
+  it. Fitted values: `epsilon_solvent` 91.4, `epsilon_interior` 17.6,
+  `screening_length` 3.38, `alpha_desolv` 0.82, `offset` ≈ 0.
+
+  Labels are cached in `pdb_cache/labels.npz`, so a refit is seconds rather than
+  the ~25 minutes PROPKA labelling costs.
 
   A learned surrogate is still the fallback if the analytic form proves too crude:
   PROPKA labels are free (~0.6 s/complex, so 20k structures is ~90 s on one
@@ -128,8 +161,10 @@ python rank.py designs/*.jsonl --out submission.csv
 - [x] pH-selectivity scoring validated against TNF's own histidines
 - [x] coordinate-space epitope weighting with mouse-divergent repulsion
 - [x] differentiable linkage-selectivity loss, sign-tested
-- [ ] calibrate ph_physics against PROPKA (needs ~200 predicted complexes)
+- [x] calibrate `ph_physics` against PROPKA (316 complexes, 1272 histidines)
+- [x] negative controls: adalimumab −0.312, infliximab +0.385 log10 (PASS)
+- [ ] **generate designs — nothing has been run yet, this is the critical path**
 - [ ] repredict designs and populate Tier 2 scores (needs a GPU job)
-- [ ] calibrate: run Tier 2 on adalimumab/infliximab as negative controls for
-      pH selectivity — the challenge permits known binders for filter calibration
+
+See [LOG.md](LOG.md) for what has been tried, including what did not work.
 - [ ] decide submission split across the three pools

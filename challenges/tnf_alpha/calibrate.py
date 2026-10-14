@@ -42,6 +42,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from gravity import pseudo_cb  # noqa: E402
 from ph_physics import (  # noqa: E402
+    HIS_MODEL_PKA,
     SIDECHAIN_CHARGE,
     PKaParams,
     linkage_selectivity,
@@ -246,6 +247,50 @@ def build_examples(paths: list[Path]) -> list[dict]:
     return examples
 
 
+ARRAY_KEYS = ("binder_bb", "binder_q", "target_bb", "target_q",
+              "sites", "y_free", "y_bound")
+
+
+def save_examples(examples: list[dict], path: Path) -> None:
+    """Flatten the examples into one npz so a refit does not re-run PROPKA."""
+    flat = {"ids": np.array([e["id"] for e in examples])}
+    for i, ex in enumerate(examples):
+        for key in ARRAY_KEYS:
+            flat[f"{i}_{key}"] = ex[key]
+    np.savez_compressed(path, n=np.array(len(examples)), **flat)
+
+
+def load_examples(path: Path) -> list[dict]:
+    data = np.load(path, allow_pickle=False)
+    n = int(data["n"])
+    ids = data["ids"]
+    return [
+        {"id": str(ids[i]), **{k: data[f"{i}_{k}"] for k in ARRAY_KEYS}}
+        for i in range(n)
+    ]
+
+
+def null_baselines(data: list[dict]) -> dict:
+    """What a model that has learned nothing would score.
+
+    Two nulls matter. Constant pKa at the model value is the trivial predictor
+    for absolute pKa, and zero shift is the trivial predictor for the quantity
+    selectivity actually depends on. A published benchmark of fast pKa methods
+    found none of them beat these with confidence, so the fitted model has to be
+    checked against them rather than praised for a plausible-looking MUE.
+    """
+    yf = jnp.concatenate([jnp.asarray(e["y_free"]) for e in data])
+    yb = jnp.concatenate([jnp.asarray(e["y_bound"]) for e in data])
+    const = jnp.full_like(yf, HIS_MODEL_PKA)
+    mue_pka = float(jnp.mean(jnp.abs(jnp.concatenate([const - yf, const - yb]))))
+    mue_shift = float(jnp.mean(jnp.abs(yb - yf)))
+    sel_true = linkage_selectivity(yb, yf)
+    # Zero shift means pka_bound == pka_free, hence exactly zero selectivity.
+    mue_sel = float(jnp.mean(jnp.abs(sel_true)))
+    return {"mue_pka": mue_pka, "mue_shift": mue_shift,
+            "mue_selectivity": mue_sel}
+
+
 def predict_all(examples: list[dict], params: PKaParams):
     """Model pKa at every labelled site, concatenated across examples."""
     free_out, bound_out = [], []
@@ -273,6 +318,8 @@ def main():
     ap.add_argument("--out", type=Path, default=Path("pka_params.json"))
     ap.add_argument("--holdout", type=float, default=0.25)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--relabel", action="store_true",
+                    help="re-run PROPKA even if cached labels exist")
     ap.add_argument("--fetch-only", action="store_true",
                     help="download and exit; compute nodes may have no network")
     args = ap.parse_args()
@@ -289,8 +336,18 @@ def main():
         print("fetch-only: stopping before the fit")
         return
 
-    print("labelling with PROPKA (both end states)")
-    examples = build_examples(paths)
+    # PROPKA labelling is ~25 min for a few hundred complexes, while a refit is
+    # seconds. Caching the labels is what makes iterating on the functional form
+    # practical rather than an overnight loop.
+    cache = args.data_dir / "labels.npz"
+    if cache.exists() and not args.relabel:
+        examples = load_examples(cache)
+        print(f"loaded {len(examples)} labelled complexes from {cache}")
+    else:
+        print("labelling with PROPKA (both end states)")
+        examples = build_examples(paths)
+        save_examples(examples, cache)
+        print(f"cached labels to {cache}")
     n_sites = sum(len(e["sites"]) for e in examples)
     print(f"{len(examples)} complexes, {n_sites} labelled histidines")
     if n_sites < 20:
@@ -353,6 +410,12 @@ def main():
         return {"mue_pka": mue_abs, "mue_shift": mue_shift,
                 "mue_selectivity": mue_sel, "r_selectivity": corr}
 
+    null = null_baselines(test)
+    print("\nnull baselines on test (a model that learned nothing):")
+    print(f"  constant pKa={HIS_MODEL_PKA}  MUE(pKa)={null['mue_pka']:.3f}")
+    print(f"  zero shift              MUE(shift)={null['mue_shift']:.3f}  "
+          f"MUE(sel)={null['mue_selectivity']:.3f}")
+
     print("\nbefore fit (physically scaled guesses):")
     report("train", train, PKaParams())
     base_test = report("test", test, PKaParams())
@@ -370,6 +433,7 @@ def main():
         "n_histidines": n_sites,
         "test_metrics": metrics,
         "test_metrics_before_fit": base_test,
+        "test_null_baselines": null,
     }
     args.out.write_text(json.dumps(payload, indent=2))
     print(f"\nwrote {args.out}")
@@ -383,6 +447,10 @@ def main():
         print(f"  INCONCLUSIVE: only {len(test)} test complexes / "
               f"{n_test_sites} histidines. Need >=10 and >=40 to judge; "
               f"the selectivity correlation above is not meaningful at this size.")
+    elif metrics["mue_shift"] >= null["mue_shift"]:
+        print(f"  REJECT: MUE(shift)={metrics['mue_shift']:.3f} is no better "
+              f"than predicting zero shift ({null['mue_shift']:.3f}). The model "
+              f"adds nothing on the quantity selectivity depends on.")
     elif metrics["mue_shift"] < 0.5 and metrics["r_selectivity"] > 0.5:
         print("  shift error and selectivity correlation are usable -- promote"
               " ph_physics from gradient-direction to a weighted objective.")

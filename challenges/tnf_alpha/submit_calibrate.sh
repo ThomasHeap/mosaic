@@ -19,7 +19,7 @@ mkdir -p "$CHALLENGE/logs"
 sbatch -A cosc020762 -p compute -c 16 --mem=32G -t 2:00:00 \
   -J tnf-calibrate \
   -o "$CHALLENGE/logs/%x-%j.out" \
-  --wrap "cd $CHALLENGE && $REPO/.venv/bin/python -I calibrate.py \
+  --wrap "cd $CHALLENGE && $REPO/.venv/bin/python -I -u calibrate.py \
             --data-dir $CHALLENGE/pdb_cache \
             --out $CHALLENGE/pka_params.json \
             --holdout 0.25"

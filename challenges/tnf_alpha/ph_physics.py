@@ -52,6 +52,8 @@ magnitude -- `calibrate()` documents the procedure. Until then use this term for
 its gradient direction and keep `ph_score.py` as the number you rank on.
 """
 
+from pathlib import Path
+
 import equinox as eqx
 import jax
 import jax.numpy as jnp
@@ -125,6 +127,27 @@ class PKaParams(eqx.Module):
     burial_cutoff: float = 10.0
     burial_width: float = 2.0
     burial_reference: float = 18.0
+
+
+def load_params(path: str | Path = "pka_params.json") -> PKaParams:
+    """Fitted `PKaParams` from `calibrate.py`, or the defaults if absent.
+
+    Calibrating and then not using the result is a trap worth closing
+    explicitly: the fitted values differ substantially from the physically
+    scaled guesses (the fit wants far more Coulomb screening and far less
+    desolvation), so which set is in force changes the gradient.
+    """
+    import json
+
+    path = Path(path)
+    if not path.is_absolute():
+        path = Path(__file__).resolve().parent / path
+    if not path.exists():
+        return PKaParams()
+    payload = json.loads(path.read_text())
+    fields = {**payload.get("params", {}), **payload.get("fixed", {})}
+    known = {f for f in PKaParams.__dataclass_fields__}
+    return PKaParams(**{k: float(v) for k, v in fields.items() if k in known})
 
 
 def _burial(
