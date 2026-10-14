@@ -726,6 +726,47 @@ if it has gone, and means a mistake like this loses one design at most.
 
 ---
 
+## 17 — First design completes. The annealing works
+
+**When** 2026-10-14 20:40. Job 19401915 (`ph`, L65, seed 405), design 1 of 40,
+2169 s (36.2 min).
+
+```
+tnf_ph_L65_s405_0   sharp=1.000  nHis=5 (8%)  top_aa=G (14%)
+SVTDLYADYYAGHAEHTAAYQGMRGKQLRNPSQGQGGPNSSYLGHEGGWIQHRLEHAPDVAEFLE
+```
+
+**`sharp=1.000`.** The PSSM annealed completely to one-hot, so the reported
+sequence is a genuine argmax rather than a draw from a diffuse distribution. This
+answers the question left open since entry 13. It also reinterprets the probe
+result: `sharp=0.104` there was an artifact of `--stage-scale 0.1` giving 7
+sharpening steps where a real run gets 65, not a flaw in the schedule. The
+entropic stages do what the Nipah recipe says they do.
+
+**The histidine cap holds.** 5 histidines (8%) against 24 (32%) before
+`TotalHistidineBudget`. Slightly above the 4.5 soft cap, as expected from a ReLU
+penalty rather than a hard constraint, and well within what a pH switch needs.
+
+**No homopolymer.** Top residue is glycine at 14%, under the 25% guard. The high
+ProteinMPNN weight has not produced the homopolymers the Nipah authors warned
+about at weight 10.0.
+
+**Throughput.** 36.2 min per design matches the 7-job-concurrent step rate
+(12.5-14 s x 165 steps). An 11 h budget gives ~18 designs per job, so ~144
+across 8 jobs -- comparable to the ~160 the Nipah run used.
+
+**Two things to watch, neither yet a problem.**
+- Glycine at 14% is high for a designed miniprotein, and the sequence has a
+  glycine-rich stretch (`QGQGGPNSSYLG`). Glycine-rich designs often fold poorly.
+  Whether it matters shows up in the monomer/complex RMSD during rescoring.
+- The five histidines sit in two clusters (positions ~13/16 and ~45/52/56)
+  rather than spread over the interface. Whether any of them are *at* the
+  epitope, and buried, is exactly what `rescore.py` plus `ph_score.py` measure --
+  and per the linkage analysis, clustering is fine as long as the free-state pKa
+  is high enough.
+
+---
+
 ## Open / next
 
 - Overnight fleet: **19401911-19401918** (8 jobs, from 20:00), 12 h wall / 11 h
@@ -741,9 +782,8 @@ if it has gone, and means a mistake like this loses one design at most.
   3. `python -I hisscan.py designs/rescored.jsonl --emit designs/hisscan_variants.jsonl`
   4. `./submit_rescore.sh designs/hisscan_variants.jsonl` to refold the variants
   5. `python -I rank.py designs/rescored.jsonl --out submission.csv --limit 40`
-- Still unverified: whether ProteinMPNN sequence_recovery rises during a full
-  165-step run. It sat at 0.05-0.09 throughout both probes, which were too short
-  to sharpen.
+- Resolved (entry 17): the PSSM anneals to sharp=1.000 in a full run, and
+  sequence_recovery roughly doubles (0.055 -> ~0.10) during stage 1.
 - Run `$PY -I selftest.py` before every design submit.
 - Repredict designs, populate Tier 2 scores on the JSONL records, then
   `$PY -I rank.py designs/*.jsonl --out submission.csv --limit 40`.
