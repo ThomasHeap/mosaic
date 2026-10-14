@@ -429,10 +429,65 @@ to run.
 
 ---
 
+## 12 — Relaunched jobs hang in XLA compilation (not compiling, idle)
+
+**When** 2026-10-14 17:30–18:06. Jobs 19399317/18/19/20, cancelled at 35:20 with
+zero designs. Probe **19400552** submitted.
+
+**What went right** All four got past the 7m28s `NoCys` assertion from entry 11,
+so that fix works. They reached the MSA server, built complex and monomer
+features, and entered XLA compilation.
+
+**What went wrong** They then sat for 35 minutes producing nothing. Last log
+output is XLA's Triton GEMM autotuner emitting invalid kernels, repeatedly:
+
+```
+loc("dot.5964"): error: 'tt.dot' op expected the output shape to be the
+concatenation of the last dimension of the first operand and ...
+```
+
+**How "slow compile" was ruled out** A 30-minute Boltz-2 compile is plausible, so
+this needed distinguishing from a hang. Three measurements:
+
+- `sacct` reported `TotalCPU 00:00:00` at 33 minutes elapsed (though accounting
+  may simply not have been sampling, since `MaxRSS` was blank too).
+- The log files did not grow by a single byte over 45 s.
+- Decisive: `scontrol show node bp1-gpu038` gave **`CPULoad=2.64`** with
+  `CPUAlloc=32`. Four compiling jobs would drive load to 8–32; 2.64 is four
+  mostly-sleeping processes. `FreeMem=437563` of 515046 MB confirmed almost
+  nothing was resident. `AllocTRES` showed `gres/gpu=4` on a 4-GPU node, so each
+  job did have its own device — GPU contention was not the cause either.
+
+Node load is the cheap, reliable way to tell a silent compile from a hang when
+you cannot get a shell on the node (`srun --overlap` failed here with "task 0
+launch failed").
+
+**Hypothesis under test** XLA's Triton GEMM autotuner compiles and benchmarks
+candidate kernels on-device; the invalid `tt.dot` kernels it is generating are a
+plausible way to hang that process while consuming no CPU. Probe 19400552 runs
+one small design (binder 60, 20 steps) alone on a node with
+`XLA_FLAGS=--xla_gpu_enable_triton_gemm=false`, which forces cuBLAS instead.
+
+**Next hypothesis if that fails** `use_msa=True` makes every job call
+`api.colabfold.com`. Blocking on a network read also shows as idle-with-no-CPU.
+The logs show the MSA completing before the Triton errors, so it is the weaker
+explanation, but a `use_msa=False` run is the next probe — the target is
+templated on 1TNF anyway, so the MSA is contributing less than it would
+otherwise.
+
+**Standing risk to the plan** Boltz-2 hallucination on a 389-residue complex
+(binder + TNF dimer) may be too expensive for a 4-day deadline even once it
+runs. `mosaic` ships a much cheaper ESMFold2 design path
+(`examples/esmfold_minibinder.py`, `biohub_design`) that is the documented fast
+route. If the probe does not produce a design quickly, switch to that rather
+than keep paying for Boltz-2 compiles.
+
+---
+
 ## Open / next
 
-- Designs in flight (entry 11): 19399317 / 19399318 / 19399319 / 19399320.
-  32 sequences across four pools; more seeds once these land.
+- **No designs exist yet.** Probe 19400552 is testing whether Boltz-2 can run at
+  all here (entry 12). Fall back to the ESMFold2 path if it cannot.
 - Run `$PY -I selftest.py` before every design submit.
 - Repredict designs, populate Tier 2 scores on the JSONL records, then
   `$PY -I rank.py designs/*.jsonl --out submission.csv --limit 40`.
