@@ -767,6 +767,73 @@ across 8 jobs -- comparable to the ~160 the Nipah run used.
 
 ---
 
+## 18 — 129 designs rescored. Filtering was never the problem; ranking was
+
+**When** 2026-10-15 09:30-10:30. Rescore jobs 19420190-19420193.
+
+**Were the filters too stringent?** Measured, not argued: **122 of 124 pass
+(98%)**. Only two rejections, both monomer/complex RMSD. The pLDDT gating added
+that morning had accidentally defanged the only aggressive filter -- nearly every
+design has monomer pLDDT around 0.5, so the RMSD check almost never fires.
+
+This matters because the Nipah *de novo* writeup is strong evidence against
+filtering. They describe their entry as "an experiment in removing filtering and
+ranking from the standard design pipeline" and got **9/10 binders (90%)**,
+placing 1st-4th, concluding inverse folding, filtering and consensus ranking
+"were not necessary" for that target. More pointedly: **none of their binders
+would have passed BindCraft's default filters**, most failing an
+unsaturated-hydrogen-bond check -- so that filter was anti-predictive. They
+caution it is one experiment against one target with no controlled baseline.
+
+What they kept is as informative as what they dropped: ranking with the *design*
+model plus multiple diffusion samples, and a monomer refold check on the top 20.
+What they dropped was biophysical threshold filters and consensus ranking with a
+second model. So the lesson is not "never threshold" -- it is "do not impose
+biophysical filters you have not validated, and rank with the model you designed
+against."
+
+**The actual bug was in ranking.** Sorting selectivity-first lexicographically
+floated non-binders to the top: the leading design had selectivity 2.31 with
+ipTM 0.511, and one had selectivity 2.04 with ipTM **0.163**. Selectivity is a
+*ratio of affinities*, so a design binding weakly at both pH values can post a
+large ratio while being useless, and the challenge ranks pH-selectivity first
+among designs that *bind* -- a non-binder scores nothing on criterion #1 either.
+
+Fixed with a tier boundary rather than a reject, explicitly because of the Nipah
+evidence: designs below ipTM 0.70 are ordered last, not discarded.
+
+**Distributions over 124 rescored designs**
+
+| metric | min | median | max |
+|---|---|---|---|
+| `selectivity_log10` | -2.002 | 0.508 | **2.307** |
+| `iptm` | 0.163 | 0.631 | 0.957 |
+| `mouse_iptm` | 0.121 | 0.666 | 0.978 |
+| `plddt_complex` | 0.681 | 0.748 | 0.815 |
+| `plddt_monomer` | 0.390 | 0.510 | 0.814 |
+| `monomer_complex_rmsd` | 2.43 | 11.70 | 21.58 |
+
+After the fix: 45/127 clear ipTM 0.70, of which 14 clear 1.0 log10 selectivity
+and 3 clear 2.0. Best all-round is `tnf_ph_hot_L75_s406_9` -- selectivity 2.19,
+ipTM 0.836, mouse ipTM 0.789.
+
+**Two honest concerns.**
+- `plddt_monomer` is ~0.5 across the entire set, and `monomer_complex_rmsd` has
+  a median of 11.7 A. Both say these binders do not fold confidently on their
+  own. The RMSD is largely *reporting* that low confidence rather than measuring
+  conformational change, which is why it is no longer a useful discriminator.
+  The Nipah designs were 220 residues; these are 65-90, and short de novo
+  monomers are harder for a co-folding model to call. Whether this is a real
+  expression liability or a prediction artifact is unresolved.
+- 23 of 124 designs have *negative* selectivity -- they would bind better at
+  pH 6.0 than 7.4. Ranking handles them correctly, but it is a reminder that the
+  pH objective is not reliably steering, and that the sign matters.
+
+**Only 45 credible binders for 40 slots** leaves no room to be choosy. More
+overnight runs would help more than any further filtering.
+
+---
+
 ## Open / next
 
 - Overnight fleet: **19401911-19401918** (8 jobs, from 20:00), 12 h wall / 11 h

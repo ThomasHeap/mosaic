@@ -39,6 +39,20 @@ MIN_PSSM_SHARPNESS = 0.8
 # which term caused it.
 MAX_SINGLE_AA_FRACTION = 0.25
 
+# Binding confidence below which pH selectivity is not meaningful. Selectivity is
+# a *ratio* of affinities, so a design that binds weakly at both pH values can
+# score a large ratio while being useless -- the worst offender in the first
+# ranked list had selectivity 2.04 with an ipTM of 0.163. The challenge ranks
+# pH-selectivity first among designs that bind; a non-binder scores nothing on
+# criterion #1 either.
+#
+# This is a *tier boundary, not a reject*. The Nipah de novo writeup reports a
+# 90% hit rate with filtering and consensus ranking removed entirely, and notes
+# none of their binders would have passed BindCraft's default filters -- most
+# failing an unsaturated-hydrogen-bond check that was evidently not predictive.
+# So weak binders are ordered last rather than discarded.
+MIN_IPTM_FOR_SELECTIVITY = 0.70
+
 
 def load(paths):
     seen_seq = {}
@@ -97,17 +111,27 @@ def check(r):
 
 
 def sort_key(r):
-    """Challenge criteria in their stated order of importance.
+    """Challenge criteria in their stated order, gated on credible binding.
 
-    pH selectivity first, then mouse cross-reactivity, then affinity -- each
-    falling back to a neutral value when the upstream scoring has not run, so
-    partially scored pools still order sensibly.
+    Tier 0 is designs whose ipTM clears `MIN_IPTM_FOR_SELECTIVITY`, ordered by
+    pH selectivity, then mouse cross-reactivity, then affinity -- the
+    challenge's own order. Tier 1 is everything else, ordered by affinity
+    first, since for a design that may not bind the useful question is whether
+    it binds at all.
+
+    Every term falls back to a neutral value when the upstream scoring has not
+    run, so a partially rescored pool still orders sensibly.
     """
-    return (
-        -float(r.get("selectivity_log10", 0.0)),
-        -float(r.get("mouse_iptm", 0.0)),
-        -float(r.get("iptm", 0.0)),
-    )
+    iptm = float(r.get("iptm") or 0.0)
+    tier = 0 if iptm >= MIN_IPTM_FOR_SELECTIVITY else 1
+    if tier == 0:
+        return (
+            tier,
+            -float(r.get("selectivity_log10") or 0.0),
+            -float(r.get("mouse_iptm") or 0.0),
+            -iptm,
+        )
+    return (tier, -iptm, -float(r.get("selectivity_log10") or 0.0), 0.0)
 
 
 def main():
