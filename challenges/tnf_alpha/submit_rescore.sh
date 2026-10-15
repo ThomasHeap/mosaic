@@ -13,7 +13,8 @@ XLA="--xla_gpu_enable_triton_gemm=false"   # see LOG.md entry 13
 
 sbatch -A cosc020762 -p cnu -c 16 --mem=64G -t 6:00:00 --gpus=a100:1 \
   --exclude="${EXCLUDE:-bp1-gpu031}" \
-  -J tnf-rescore \
+  -J "tnf-rescore${TAG:+-$TAG}" \
   -o "$CHALLENGE/logs/%x-%j.out" \
   --wrap "cd $CHALLENGE && XLA_FLAGS='$XLA' $REPO/.venv/bin/python -u rescore.py $* \
-            --out $CHALLENGE/designs/rescored.jsonl"
+            --out $CHALLENGE/designs/rescored${TAG:+_$TAG}.jsonl \
+            --struct-dir $CHALLENGE/structures"

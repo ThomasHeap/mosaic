@@ -22,6 +22,13 @@ MIN_LEN, MAX_LEN = 10, 250
 # only when rescore.py has measured it -- an unmeasured design is not rejected,
 # it is merely unranked.
 MAX_MONOMER_COMPLEX_RMSD = 5.0
+# The RMSD above is only interpretable when the monomer prediction is itself
+# confident. The first rescored design had rmsd 12.5 A with plddt_monomer 0.49 --
+# at that confidence the monomer structure is unreliable, so a large RMSD cannot
+# distinguish "folds differently alone" from "has no confident fold alone". Below
+# this confidence the RMSD is ignored and the low confidence is reported instead,
+# which is the more honest statement of the same concern.
+MIN_PLDDT_FOR_RMSD = 0.7
 # How close the annealed PSSM got to one-hot. Well below 1.0 means the reported
 # sequence is an argmax over a still-fuzzy distribution.
 MIN_PSSM_SHARPNESS = 0.8
@@ -65,9 +72,14 @@ def check(r):
     if set(seq) - set("ARNDCQEGHILKMFPSTWYV"):
         problems.append("non-standard residue")
     rmsd = r.get("monomer_complex_rmsd")
-    if rmsd is not None and float(rmsd) > MAX_MONOMER_COMPLEX_RMSD:
+    plddt_mono = r.get("plddt_monomer")
+    if (rmsd is not None and float(rmsd) > MAX_MONOMER_COMPLEX_RMSD
+            and plddt_mono is not None
+            and float(plddt_mono) >= MIN_PLDDT_FOR_RMSD):
         problems.append(
-            f"monomer/complex RMSD {float(rmsd):.1f} A > {MAX_MONOMER_COMPLEX_RMSD}"
+            f"monomer/complex RMSD {float(rmsd):.1f} A > "
+            f"{MAX_MONOMER_COMPLEX_RMSD} at monomer pLDDT "
+            f"{float(plddt_mono):.2f}"
         )
     from collections import Counter
     if seq:

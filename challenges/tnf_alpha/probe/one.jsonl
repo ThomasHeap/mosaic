@@ -1,0 +1,1 @@
+{"name": "tnf_affinity_L65_s401_0", "sequence": "WYKPPEKYLEEMNKNKKKAEEVGKRGLPGGLPVLNETGKKPFFDIFEPGNWMGSGAWQWRDFGLN", "molecule_class": "protein", "pool": "affinity", "his_target": null, "physics": false, "n_his": 0, "config": "nipah-recipe+hiscap-v1", "pssm_max_mean": 1.0, "seconds": 2169.6}
