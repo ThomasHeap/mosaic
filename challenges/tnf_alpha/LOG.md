@@ -834,6 +834,68 @@ overnight runs would help more than any further filtering.
 
 ---
 
+## 19 — Should designs be longer? No: shorter, and for criterion #2
+
+**When** 2026-10-15 10:45. Fleet **19420732-19420739** launched at L50/L55/L65.
+
+**Why the question matters.** The Nipah winners used **220-residue** binders and
+got a 90% hit rate, and the challenge permits 10-250. So the precedent argues
+for much longer than the 65-90 used here.
+
+**First look, and the confound that nearly fooled me.** Pooling everything by
+length suggested L65 was far better (47% credible binders vs 28-29%). But the
+lengths are not pool-balanced -- L90 is *only* affinity designs, L65 has no
+`ph_hot` -- so that comparison conflates length with pool:
+
+| pool | L65 | L75 | L90 |
+|---|---|---|---|
+| affinity | 19 | 16 | 17 |
+| ph | 19 | 17 | 0 |
+| ph_hot | 0 | 17 | 0 |
+| physics | 7 | 17 | 0 |
+
+**Within the affinity pool** (the only one spanning all three lengths):
+
+| length | tier-0 rate | ipTM med | mouse ipTM med |
+|---|---|---|---|
+| L65 | 14/19 (74%) | 0.764 | 0.852 |
+| L75 | 4/16 (25%) | 0.521 | 0.551 |
+| L90 | 5/17 (29%) | 0.641 | 0.477 |
+
+One-sided Fisher on L65 vs longer: **p = 0.0014**.
+
+**But it does not replicate.** The same comparison in the other two pools:
+
+| pool | L65 tier-0 | L75 tier-0 |
+|---|---|---|
+| ph | 5/19 (26%) | **6/17 (35%)** |
+| physics | 2/7 (29%) | 5/17 (29%) |
+
+`ph` goes the *other* way and `physics` is flat. So the striking affinity result
+is most likely seed variation or a pool interaction, not a length effect on
+binding confidence. A p-value from one pool out of three is not a finding --
+the same lesson as the calibration verdict in entry 8.
+
+**What does replicate is mouse cross-reactivity**, in all three pools:
+
+| pool | L65 | L75 | L90 |
+|---|---|---|---|
+| affinity | 0.852 | 0.551 | 0.477 |
+| ph | 0.760 | 0.641 | - |
+| physics | 0.755 | 0.599 | - |
+
+Monotone decreasing with length, every time, and with a mechanism: the conserved
+epitope is only **14 residues** (entry 1), so a larger binder cannot avoid
+spilling onto the six mouse-divergent positions -- buying human affinity at the
+cost of criterion #2. This is exactly why 220 residues worked for Nipah and
+would hurt here: that competition ranked on affinity alone and had no
+cross-reactivity criterion.
+
+**Decision** Do not go longer. Go shorter, which has never been tested: the new
+fleet runs L50 and L55 alongside L65, keeping L65 as the reinforced control.
+
+---
+
 ## Open / next
 
 - Overnight fleet: **19401911-19401918** (8 jobs, from 20:00), 12 h wall / 11 h
