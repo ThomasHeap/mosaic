@@ -80,7 +80,7 @@ POOLS = {
 # in a way that makes older designs incomparable, so a stale file cannot be
 # globbed into a submission unnoticed -- four designs from superseded configs
 # had to be quarantined by hand (see designs/legacy/README.md).
-CONFIG = "nipah-recipe+hiscap+monomer+pll-v3"
+CONFIG = "nipah-recipe+hiscap-v3"
 
 # (n_steps, stepsize factor on sqrt(L), momentum, proximal scale, logspace).
 # Stage 1 explores; stages 2-3 sharpen via negative entropic regularization.
@@ -328,6 +328,8 @@ def main():
             "physics": physics,
             "n_his": seq.count("H"),
             "config": CONFIG,
+            "monomer_weight": args.monomer_weight,
+            "esm_weight": args.esm_weight,
             # Sharpness of the final PSSM: how close the annealing got to
             # one-hot. Near 1.0 is converged; well below means the reported
             # sequence is an argmax over a still-fuzzy distribution.
