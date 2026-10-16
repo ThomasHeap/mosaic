@@ -146,15 +146,13 @@ the pKa shift is 0.46 log10 per site and finer distinctions are not measurable.
 
 ## Novelty screen
 
-Novelty is a hard criterion and nothing in the ranking measured it, so the
-submitted designs were screened against Adaptyv's published criteria before
-submission. Foldseek (PDB, 05.2024) with TM-score and query coverage was run on
-the monomer structures from rescore.py; level 4 de novo requires sequence
-identity <= 30% and below-moderate structural similarity, where moderate is
-> 70% coverage at TM-score >= 0.5.
+Foldseek (PDB 05.2024) was run on the monomer structures from rescore.py against
+Adaptyv's published thresholds, where level 4 de novo requires sequence identity
+<= 30% and below-moderate structural similarity, moderate being > 70% coverage at
+TM-score >= 0.5. Pool-wide, 384 of 515 designs are below moderate.
 
-Fourteen of the twenty are below moderate. Six are not, and they are named here
-rather than removed, because they are also the strongest binders in the set:
+Fourteen of the twenty submitted are below moderate. The six that are not are
+also the strongest binders in the set, and are kept:
 
   tnf_physics_L55_s508_14_his4_31_30_9_12   TM 0.558  qcov 0.91  ipTM 0.933
   tnf_ph_L55_s505_17_his4_29_40_30_23       TM 0.656  qcov 0.89  ipTM 0.902
@@ -163,20 +161,15 @@ rather than removed, because they are also the strongest binders in the set:
   tnf_physics_L55_s508_0                    TM 0.541  qcov 0.82  ipTM 0.789
   tnf_ph_hot_L75_s406_11_his4_72_65_68_30   TM 0.651  qcov 0.95  ipTM 0.765
 
-Two caveats. The screen used Boltz-2 monomer predictions, whose pLDDT is about
-0.5 (see Limitations), while Adaptyv predict with ESMFold and segment domains
-before TM-align, so these scores are approximate and the structures they rest on
-are not confident. And no design resembles a known TNF binder: across 13,514
-hits from the 515-design pool there were no matches to TNFR1, TNFR2,
-adalimumab, infliximab, certolizumab or TNF itself. The nearest neighbours pool-
-wide are bacteriophage capsids, bacterial proteins and other computationally
-designed proteins (the most frequent single hit is 8szz, a designed nanocage),
-not human proteins. Excluding cysteine for assay reasons incidentally rules out
-the cysteine-rich-domain fold both natural TNF receptors use to bind.
+These scores are approximate: they rest on Boltz-2 monomer structures at pLDDT
+~0.5, while Adaptyv predict with ESMFold and segment domains before TM-align.
 
-Pool-wide, 384 of 515 designs are below moderate, so a novelty-filtered
-selection was available and was not taken: filtering would have discarded the
-best binders on an approximate metric.
+No design resembles a known TNF binder. Across 13,514 hits from the 515-design
+pool there are no matches to TNFR1, TNFR2, adalimumab, infliximab, certolizumab
+or TNF itself, and the nearest neighbours are bacteriophage capsids, bacterial
+proteins and other designed proteins rather than human ones. Excluding cysteine
+also rules out the cysteine-rich-domain fold both natural receptors use, so the
+architecture proven for this site was not searched.
 
 ## Limitations
 
