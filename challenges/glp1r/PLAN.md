@@ -50,6 +50,30 @@ adapts rather than being discarded. Note 5vew is TMD-only (no ECD) and a
 different construct length, so the comparison has to be restricted to the common
 TMD region or it confounds conformation with construct.
 
+## Epitope must be specified, and so must an exclusion zone
+
+The epitope cannot be left to the optimiser, for a reason TNF did not have. In
+6x18 the GLP-1 orthosteric footprint is 52 residues at 52% hydrophobic, while
+the lipid-facing transmembrane belt is 65 residues at 72% hydrophobic. The belt
+is the larger and stickier surface, Boltz-2 models no membrane, and the two sets
+overlap by only 2 residues.
+
+A design that binds the belt would score on objective 01, since affinity is
+measured on the detergent-solubilised construct where that surface is exposed,
+and fail objective 02, since in a cell it is buried in lipid. That is the worst
+available failure: passing the first criterion for a biologically meaningless
+reason.
+
+BinderTargetContact takes epitope_idx but is attractive only, so it rewards the
+footprint without penalising the belt. A second copy at negative weight gives
+the repulsion, since the term returns -log P(contact). Negative-weight terms are
+unbounded below and may need clipping.
+
+Epitope: the 52 footprint residues, keeping the TMD subset (190-241, 298-313,
+372-391) as required contacts rather than optional, since those drive activation.
+Truncating the receptor to its extracellular part would remove the belt by
+construction but also the pocket, so template the full 24-432 instead.
+
 ## Open question to settle first
 
 Whether reproducing the activation chemistry counts as de novo. The N-terminal
