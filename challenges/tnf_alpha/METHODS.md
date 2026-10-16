@@ -164,3 +164,82 @@ TNF binder with a published pH switch was available as a positive control.
 
 Designs were optimised against a templated TNF dimer. If evaluation co-folds
 without a template, predicted interface quality may not reproduce.
+
+### Monomer foldability: a measured, unresolved liability
+
+The single clearest weakness in this submission is that the designs are not
+predicted to fold confidently on their own. Two structure predictors agree,
+each against the same two natural controls:
+
+| instrument | GB1 / Top7 controls | these designs | designs reaching control |
+|---|---|---|---|
+| Boltz-2 monomer pLDDT | 0.935 / 0.882 | median 0.541 | 0 / 20 |
+| ESMFold2 monomer pLDDT | 0.829 / 0.725 | median 0.459 | 0 / 20 |
+
+ESMFold2 is more conservative in absolute terms but reproduces the separation,
+and it is single-sequence by construction rather than a co-folding model used
+off-label. mosaic's Megascale stability model disagrees, placing 15 of 20
+designs above GB1, but it also scores GB1 itself at dG +0.29 — below most of
+our designs — which is not credible for one of the best-characterised small
+domains known, so it is treated as the outlier. Its sign convention was checked
+separately against scrambled sequences and is correct; the issue is calibration.
+
+A binder that only folds when bound is a plausible expression and aggregation
+risk, which is why this is reported rather than omitted. Two caveats belong
+with it. First, the inference from low monomer pLDDT to experimental failure is
+**not validated here**: these designs differ from well-folded controls, but no
+measured relationship links that difference to expression outcome, and the
+Nipah de novo work that this pipeline's recipe follows reports a 90% hit rate
+without reporting monomer pLDDT at all. Second, a disordered-alone binder that
+folds on binding is a real and functional class of molecule; the costs are
+entropic and proteolytic rather than automatically fatal.
+
+Two routes to fixing it were tried and both measured as not worth taking.
+
+**Adding monomer confidence to the design loss costs binding.** Four arms at
+n=2, 65-residue binders, pH pool:
+
+| arm | monomer pLDDT | composition | ipTM (unselected) |
+|---|---|---|---|
+| baseline | 0.555 | ok | 0.599 |
+| monomer 2.0 + PLL 0.5 | 0.694, 0.638 | ok | 0.367 |
+| monomer 3.0 + PLL 1.0 | 0.806, 0.811 | 40% / 34% Ala | 0.326 |
+| monomer 2.0 + PLL 0.5 + MPNN | 0.643, 0.572 | ok | 0.371 |
+| monomer 3.0 + PLL 1.0 + MPNN | 0.531, 0.697 | ok | 0.343 |
+
+The highest pLDDT occurs only in the arm that collapsed to 40% alanine, past
+rank.py's 25% homopolymer guard: poly-alanine helices read as foldable to any
+confidence head, so most of the apparent gain was a composition artifact rather
+than folding. ESMC pseudo-perplexity did not prevent that collapse; ProteinMPNN
+on the monomer branch did, being structure-conditioned, but it removes the
+pLDDT gain along with the artifact. Within-arm spread (0.531 vs 0.697) exceeds
+every between-arm difference, so n=2 cannot rank these configurations.
+Runtimes matched baseline (2278s vs 2069s per design), ruling out undertraining.
+
+Notably, soluble-weight ProteinMPNN was already applied throughout at weight
+10.0 (`soluble_v_48_020.pt`), and did not prevent the problem, because in the
+complex branch it answers a different question: given this backbone *as it
+appears bound*, what sequence would a soluble-protein model choose? Solubility
+conditional on a fold is not the same property as having a self-supporting fold.
+
+**Selecting on it is free but inert.** Over 515 scored designs, ipTM and monomer
+pLDDT are near-independent (r = +0.095; an earlier estimate of +0.006 was
+attenuated by restricting the sample to ipTM >= 0.75), so preferring
+better-folded designs costs essentially no binding. But inserted as a
+tie-break beneath the challenge's three stated criteria it changed one design
+of twenty, for +0.007 pLDDT and -0.016 ipTM. After lineage dedup and the hedge
+floors only 13 all-rounders remain, so those constraints are already nearly
+binding and no slack remains for a fourth axis.
+
+The tail explains the ceiling. The five designs with the highest monomer pLDDT
+(0.71-0.81) are all rejected for monomer/complex RMSD of 5.3-18.0 A: they fold
+confidently alone into a conformation that is not the bound one. That is argu-
+ably worse than low confidence, because a stable alternative fold competes with
+the binding-competent state. Within this pool, high monomer confidence and
+bound-state agreement are close to mutually exclusive.
+
+The submission therefore retains the selection optimised for the three scored
+criteria, with this liability stated rather than papered over. The route not
+taken, given more compute budget, is to generate a substantially larger pool
+under the baseline objective and select on foldability only where it is free —
+the pool, not the loss function, is the binding constraint.

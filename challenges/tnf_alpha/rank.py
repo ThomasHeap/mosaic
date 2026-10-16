@@ -67,6 +67,26 @@ MIN_IPTM_FOR_SELECTIVITY = 0.70
 # a large real difference in criterion #2 for a difference in criterion #1 that
 # is inside the noise. Within a bucket, order by the challenge's next criterion.
 SELECTIVITY_BUCKET = 0.5
+# Monomer confidence is deliberately NOT a selection term here, and that is a
+# measured decision rather than an oversight. Two models agree these designs are
+# far less confidently folded in isolation than GB1/Top7 (medians 0.54 Boltz-2
+# and 0.46 ESMFold2, against controls at 0.88-0.94), so the liability is real.
+# Neither available route fixes it. Raising monomer pLDDT in the design loss
+# costs ~0.25 ipTM for ~0.08 pLDDT, and the composition-legal part of that gain
+# is unrankable at n=2. Selecting on it instead is nearly free in principle --
+# over 515 scored designs ipTM and monomer pLDDT are near-independent
+# (r=+0.095) -- but inert in practice: inserted as a tie-break under the
+# challenge's own three criteria it moved one design of twenty, for +0.007
+# pLDDT and -0.016 ipTM. After lineage dedup and the hedge floors only 13
+# all-rounders remain, so the constraints are already nearly binding and there
+# is no slack left to spend on a fourth axis. The pool does not contain designs
+# that are strong on all three scored criteria *and* well-folded alone.
+#
+# The tail shows why: the 5 designs with the highest monomer pLDDT (0.71-0.81)
+# are all rejected below for monomer/complex RMSD 5.3-18.0 A. They fold
+# confidently alone into a conformation that is not the bound one, which is
+# worse than low confidence, since a stable alternative fold competes with the
+# binding-competent state. Documented in METHODS.md as a known liability.
 
 
 def portfolio(ordered, limit):
