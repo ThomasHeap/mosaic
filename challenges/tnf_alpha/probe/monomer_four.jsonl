@@ -1,0 +1,10 @@
+{"name": "GB1_1PGB_56aa", "kind": "control", "length": 56, "plddt_monomer": 0.9350962042808533}
+{"name": "Top7_1QYS_93aa", "kind": "control", "length": 95, "plddt_monomer": 0.8824726343154907}
+{"name": "m20_pll05_0", "kind": "design", "length": 65, "plddt_monomer": 0.6935744881629944}
+{"name": "m20_pll05_1", "kind": "design", "length": 65, "plddt_monomer": 0.638405442237854}
+{"name": "m30_pll10_0", "kind": "design", "length": 65, "plddt_monomer": 0.8059518337249756}
+{"name": "m30_pll10_1", "kind": "design", "length": 65, "plddt_monomer": 0.8105838894844055}
+{"name": "m20_pll05_MPNN_0", "kind": "design", "length": 65, "plddt_monomer": 0.6431690454483032}
+{"name": "m20_pll05_MPNN_1", "kind": "design", "length": 65, "plddt_monomer": 0.5723984241485596}
+{"name": "m30_pll10_MPNN_0", "kind": "design", "length": 65, "plddt_monomer": 0.5306673049926758}
+{"name": "m30_pll10_MPNN_1", "kind": "design", "length": 65, "plddt_monomer": 0.6966012120246887}

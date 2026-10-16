@@ -169,10 +169,18 @@ def build_objective(
         # pLDDT is weighted hard here, unlike the mosaic README example's 0.2,
         # because monomer confidence is the specific thing that failed.
         mono_features, _ = model.binder_features(binder_length, [])
+        # ProteinMPNN appears in the complex branch too, but there it answers a
+        # different question: "given this backbone *as it appears in the
+        # complex*, what sequence would a soluble-protein model choose?" Nothing
+        # was asking whether that backbone is self-supporting. Soluble MPNN
+        # optimises solubility conditional on a fold; this term asks whether the
+        # sequence is plausible for the fold it adopts *alone*, which is the
+        # actual gap.
         objective = objective + monomer_weight * model.build_loss(
             loss=1.0 * sp.PLDDTLoss()
             + 0.3 * sp.DistogramRadiusOfGyration(target_radius=15.0)
-            + 0.2 * sp.HelixLoss(),
+            + 0.2 * sp.HelixLoss()
+            + 3.0 * InverseFoldingSequenceRecovery(mpnn, temp=jnp.array(0.001)),
             features=mono_features,
             recycling_steps=1,
         )
