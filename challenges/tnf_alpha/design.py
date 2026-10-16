@@ -79,7 +79,7 @@ POOLS = {
 # in a way that makes older designs incomparable, so a stale file cannot be
 # globbed into a submission unnoticed -- four designs from superseded configs
 # had to be quarantined by hand (see designs/legacy/README.md).
-CONFIG = "nipah-recipe+hiscap-v1"
+CONFIG = "nipah-recipe+hiscap+monomer-v2"
 
 # (n_steps, stepsize factor on sqrt(L), momentum, proximal scale, logspace).
 # Stage 1 explores; stages 2-3 sharpen via negative entropic regularization.
@@ -95,9 +95,22 @@ MAX_GRAD_NORM = 1.0
 
 def build_objective(
     model, binder_length, epitope_idx, his_target, mpnn, gravity_weight=1.0,
-    physics=False, num_samples=4,
+    physics=False, num_samples=4, monomer_weight=1.0,
 ):
-    """Complex-only objective. Monomer consistency is checked in rescore.py."""
+    """Complex objective plus a monomer branch that pressures foldability.
+
+    The Nipah recipe has no monomer branch: it optimizes the complex and checks
+    monomer/complex consistency afterwards. That is right for their 220-residue
+    binders and wrong here. Measured on the first submission (diagnostics.py
+    --test monomer): GB1 scores monomer pLDDT 0.935 and Top7 -- a *de novo*
+    design of 93 residues -- scores 0.883 under the identical protocol, while
+    all 20 designs scored 0.466-0.676, median 0.537. None reached either
+    control, so the designs genuinely were not predicted to fold alone, and
+    nothing in the objective was pressuring them to.
+
+    A binder that only folds when bound is an expression risk, and an unexpressed
+    design scores zero on every criterion.
+    """
     target_chains = [
         TargetChain(HUMAN_TNF, use_msa=True, template_chain=ch)
         for ch in tnf_template_chains(2)
@@ -140,6 +153,18 @@ def build_objective(
     objective = model.build_multisample_loss(
         loss=loss, features=features, recycling_steps=1, num_samples=num_samples
     )
+
+    if monomer_weight:
+        # pLDDT is weighted hard here, unlike the mosaic README example's 0.2,
+        # because monomer confidence is the specific thing that failed.
+        mono_features, _ = model.binder_features(binder_length, [])
+        objective = objective + monomer_weight * model.build_loss(
+            loss=1.0 * sp.PLDDTLoss()
+            + 0.3 * sp.DistogramRadiusOfGyration(target_radius=15.0)
+            + 0.2 * sp.HelixLoss(),
+            features=mono_features,
+            recycling_steps=1,
+        )
     # Cysteine is excluded: free cysteines in a secreted minibinder invite
     # disulfide scrambling, and the assay construct is tag-free. NoCys takes a
     # 19-wide simplex, so the optimizer runs in 19 dimensions.
@@ -184,6 +209,8 @@ def main():
     ap.add_argument("--binder-length", type=int, default=75)
     ap.add_argument("--num-samples", type=int, default=4)
     ap.add_argument("--gravity-weight", type=float, default=1.0)
+    ap.add_argument("--monomer-weight", type=float, default=1.0,
+                    help="weight on the monomer foldability branch; 0 disables")
     ap.add_argument("--seed", type=int, default=0)
     # Scales every stage's step count. Use a small value to verify a config end
     # to end before committing GPU hours -- three launches were burned on
@@ -212,7 +239,7 @@ def main():
     objective = build_objective(
         model, args.binder_length, epitope_idx, his_target, mpnn,
         gravity_weight=args.gravity_weight, physics=physics,
-        num_samples=args.num_samples,
+        num_samples=args.num_samples, monomer_weight=args.monomer_weight,
     )
 
     # Seed is in the filename: several jobs run the same pool/length overnight,
