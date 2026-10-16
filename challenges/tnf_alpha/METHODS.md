@@ -144,6 +144,40 @@ that does not bind at either pH.
 Selectivity is bucketed at 0.5 log10 before ordering, because PROPKA's error on
 the pKa shift is 0.46 log10 per site and finer distinctions are not measurable.
 
+## Novelty screen
+
+Novelty is a hard criterion and nothing in the ranking measured it, so the
+submitted designs were screened against Adaptyv's published criteria before
+submission. Foldseek (PDB, 05.2024) with TM-score and query coverage was run on
+the monomer structures from rescore.py; level 4 de novo requires sequence
+identity <= 30% and below-moderate structural similarity, where moderate is
+> 70% coverage at TM-score >= 0.5.
+
+Fourteen of the twenty are below moderate. Six are not, and they are named here
+rather than removed, because they are also the strongest binders in the set:
+
+  tnf_physics_L55_s508_14_his4_31_30_9_12   TM 0.558  qcov 0.91  ipTM 0.933
+  tnf_ph_L55_s505_17_his4_29_40_30_23       TM 0.656  qcov 0.89  ipTM 0.902
+  tnf_ph_hot_L75_s406_8_his4_66_67_70_73    TM 0.751  qcov 0.85  ipTM 0.872
+  tnf_ph_hot_L65_s506_0_his4_2_4_54_56      TM 0.645  qcov 0.72  ipTM 0.844
+  tnf_physics_L55_s508_0                    TM 0.541  qcov 0.82  ipTM 0.789
+  tnf_ph_hot_L75_s406_11_his4_72_65_68_30   TM 0.651  qcov 0.95  ipTM 0.765
+
+Two caveats. The screen used Boltz-2 monomer predictions, whose pLDDT is about
+0.5 (see Limitations), while Adaptyv predict with ESMFold and segment domains
+before TM-align, so these scores are approximate and the structures they rest on
+are not confident. And no design resembles a known TNF binder: across 13,514
+hits from the 515-design pool there were no matches to TNFR1, TNFR2,
+adalimumab, infliximab, certolizumab or TNF itself. The nearest neighbours pool-
+wide are bacteriophage capsids, bacterial proteins and other computationally
+designed proteins (the most frequent single hit is 8szz, a designed nanocage),
+not human proteins. Excluding cysteine for assay reasons incidentally rules out
+the cysteine-rich-domain fold both natural TNF receptors use to bind.
+
+Pool-wide, 384 of 515 designs are below moderate, so a novelty-filtered
+selection was available and was not taken: filtering would have discarded the
+best binders on an approximate metric.
+
 ## Limitations
 
 Monomer pLDDT is approximately 0.5 across the submitted set, so these binders are
