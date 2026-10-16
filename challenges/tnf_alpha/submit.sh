@@ -66,4 +66,4 @@ sbatch -A cosc020762 -p "$PARTITION" -c 8 --mem=64G -t "$WALL" --gpus=a100:1 \
   --wrap "cd $CHALLENGE && XLA_FLAGS='$XLA' $REPO/.venv/bin/python -u design.py \
             --pool $POOL --n-designs $N_DESIGNS --binder-length $LENGTH \
             --seed $SEED --time-budget $BUDGET \
-            --monomer-weight ${MONOMER:-1.0} --out $CHALLENGE/designs"
+            --monomer-weight ${MONOMER:-2.0} --esm-weight ${ESMW:-0.5} --out $CHALLENGE/designs"

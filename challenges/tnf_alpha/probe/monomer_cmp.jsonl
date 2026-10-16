@@ -1,0 +1,5 @@
+{"name": "GB1_1PGB_56aa", "kind": "control", "length": 56, "plddt_monomer": 0.9374528527259827}
+{"name": "Top7_1QYS_93aa", "kind": "control", "length": 95, "plddt_monomer": 0.8822593092918396}
+{"name": "m0_no_monomer", "kind": "design", "length": 65, "plddt_monomer": 0.5554524660110474}
+{"name": "m1_weight1", "kind": "design", "length": 65, "plddt_monomer": 0.599423348903656}
+{"name": "m3_weight3", "kind": "design", "length": 65, "plddt_monomer": 0.7290626168251038}

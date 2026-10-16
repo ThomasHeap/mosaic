@@ -105,12 +105,13 @@ def main():
     ap.add_argument("--replicates", type=int, default=3)
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--csv", default="submission.csv")
     args = ap.parse_args()
 
     if jax.devices()[0].platform != "gpu":
         raise SystemExit("needs a GPU; use submit_diagnostics.sh")
 
-    rows = load_submission()
+    rows = load_submission(args.csv)
     if args.limit:
         rows = rows[: args.limit]
     model = Boltz2()

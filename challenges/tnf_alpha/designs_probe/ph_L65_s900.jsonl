@@ -1,0 +1,1 @@
+{"name": "tnf_ph_L65_s900_0", "sequence": "PDKSRAFEAAHKEGHYYYKAAYGADWADWWAEPESTPSYHERLHAVHAGSWGGLKGGLESEYEKD", "molecule_class": "protein", "pool": "ph", "his_target": 3.0, "physics": false, "n_his": 5, "config": "nipah-recipe+hiscap+monomer-v2", "pssm_max_mean": 0.9999997615814209, "seconds": 2159.6}

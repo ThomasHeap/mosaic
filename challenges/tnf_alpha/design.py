@@ -52,6 +52,7 @@ import numpy as np
 
 import mosaic.losses.structure_prediction as sp  # noqa: I001
 from mosaic.common import TOKENS
+from mosaic.losses.esmc import ESMCPseudoPerplexity, load_esmc
 from mosaic.losses.protein_mpnn import InverseFoldingSequenceRecovery
 from mosaic.losses.transformations import NoCys
 from mosaic.models.boltz2 import Boltz2
@@ -79,7 +80,7 @@ POOLS = {
 # in a way that makes older designs incomparable, so a stale file cannot be
 # globbed into a submission unnoticed -- four designs from superseded configs
 # had to be quarantined by hand (see designs/legacy/README.md).
-CONFIG = "nipah-recipe+hiscap+monomer-v2"
+CONFIG = "nipah-recipe+hiscap+monomer+pll-v3"
 
 # (n_steps, stepsize factor on sqrt(L), momentum, proximal scale, logspace).
 # Stage 1 explores; stages 2-3 sharpen via negative entropic regularization.
@@ -95,7 +96,8 @@ MAX_GRAD_NORM = 1.0
 
 def build_objective(
     model, binder_length, epitope_idx, his_target, mpnn, gravity_weight=1.0,
-    physics=False, num_samples=4, monomer_weight=1.0,
+    physics=False, num_samples=4, monomer_weight=2.0, esm_weight=0.5,
+    esmc=None,
 ):
     """Complex objective plus a monomer branch that pressures foldability.
 
@@ -154,6 +156,15 @@ def build_objective(
         loss=loss, features=features, recycling_steps=1, num_samples=num_samples
     )
 
+    # Pushing monomer confidence alone games the predictor: at monomer_weight 3
+    # a probe reached pLDDT 0.729 but did it with 38% alanine, since poly-Ala
+    # helices look foldable to any confidence head and nothing was penalising
+    # unnatural composition. ESMC pseudo-perplexity is that missing term -- it
+    # scores how protein-like the sequence is, independent of structure -- and
+    # it is what lets the monomer weight go up without the collapse.
+    if esm_weight and esmc is not None:
+        objective = objective + esm_weight * ESMCPseudoPerplexity(esm=esmc)
+
     if monomer_weight:
         # pLDDT is weighted hard here, unlike the mosaic README example's 0.2,
         # because monomer confidence is the specific thing that failed.
@@ -209,8 +220,10 @@ def main():
     ap.add_argument("--binder-length", type=int, default=75)
     ap.add_argument("--num-samples", type=int, default=4)
     ap.add_argument("--gravity-weight", type=float, default=1.0)
-    ap.add_argument("--monomer-weight", type=float, default=1.0,
+    ap.add_argument("--monomer-weight", type=float, default=2.0,
                     help="weight on the monomer foldability branch; 0 disables")
+    ap.add_argument("--esm-weight", type=float, default=0.5,
+                    help="weight on ESMC pseudo-perplexity; 0 disables")
     ap.add_argument("--seed", type=int, default=0)
     # Scales every stage's step count. Use a small value to verify a config end
     # to end before committing GPU hours -- three launches were burned on
@@ -236,10 +249,12 @@ def main():
 
     model = Boltz2()
     mpnn = load_mpnn_sol(0.05)
+    esmc = load_esmc(model_name="esmc_300m") if args.esm_weight else None
     objective = build_objective(
         model, args.binder_length, epitope_idx, his_target, mpnn,
         gravity_weight=args.gravity_weight, physics=physics,
         num_samples=args.num_samples, monomer_weight=args.monomer_weight,
+        esm_weight=args.esm_weight, esmc=esmc,
     )
 
     # Seed is in the filename: several jobs run the same pool/length overnight,
