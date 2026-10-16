@@ -896,6 +896,98 @@ fleet runs L50 and L55 alongside L65, keeping L65 as the reinforced control.
 
 ---
 
+## 20 — Submission built: 40 designs from 377 scored candidates
+
+**When** 2026-10-16. 292 main designs + 85 histidine-scan variants, all rescored.
+`submission.csv` written.
+
+### The histidine scan worked, and my own model had understated it
+
+Scan predictions were +0.1 to +0.3 log10 for four histidines. Measured with
+PROPKA after refolding:
+
+| | |
+|---|---|
+| median selectivity gain | **+0.510** |
+| best gain | **+2.744** |
+| improved selectivity | 61/85 |
+| improved *and* still bind (ipTM >= 0.70) | 30 |
+| median ipTM cost | **-0.117** |
+
+So `predict_pka` understated the effect by roughly 2-5x, exactly as suspected --
+its calibration had driven `screening_length` to 3.38 and `alpha_desolv` to 0.82,
+reducing it to near nearest-neighbour electrostatics (entry 8). Trusting PROPKA
+over it was right. The ipTM cost of -0.117 is real and expected: mutating an
+interface to install a switch weakens binding, which is why the scan must be
+followed by refolding rather than accepted on the prediction.
+
+14 of the final 40 are scan variants, so the route that was built as a *hedge*
+earned a third of the submission.
+
+### Length: a trade-off, not a direction
+
+With 292 designs across five lengths:
+
+| len | n | binders | mouse ipTM | pH selectivity |
+|---|---|---|---|---|
+| 50 | 20 | 50% | 0.832 | 0.32 |
+| 55 | 57 | 49% | **0.847** | 0.46 |
+| 65 | 131 | 39% | 0.702 | **0.65** |
+| 75 | 67 | 28% | 0.603 | 0.41 |
+| 90 | 17 | 29% | 0.477 | 0.54 |
+
+Shorter wins on binding *and* mouse cross-reactivity -- replicated properly now,
+so entry 19's non-replication was small-sample noise. But **pH selectivity peaks
+at L65 and falls at L50/L55**: the predicted floor, where there is no longer room
+for histidines plus the acidic neighbours that raise their pKa_free. L55-L65 is
+the sweet spot; L65 if criterion #1 is weighted hardest.
+
+### Two ranking fixes
+
+**Lineage collapse.** A scan variant differs from its parent by 2-4 residues and
+its siblings by one. Submitting both wastes a slot and sits badly with the
+uniqueness rule. 84 near-duplicates collapsed.
+
+**Noise-aware bucketing.** Strict lexicographic ordering on selectivity ranked a
+design at 2.30 with mouse ipTM 0.436 above one at 2.11 with 0.917 -- treating a
+0.19 difference as decisive when calibration put PROPKA's shift error at 0.46
+log10 per site (entry 8). Selectivity is now bucketed at 0.5 log10 and ties
+broken by mouse cross-reactivity. Median mouse ipTM across the 40 rose 0.758 ->
+**0.827**, and the weak-mouse designs moved from #4 to #10-12.
+
+### The submission
+
+40 designs, all binding (ipTM >= 0.702), all clearing 1.08 log10 selectivity,
+12 clearing 2.0. Median selectivity 1.71, mouse ipTM 0.827, ipTM 0.794. Lengths
+50-90, pools: 14 hisscan / 8 ph / 8 ph_hot / 7 affinity / 3 physics.
+
+Format verified: correct header, all `protein`, all lengths in range, names
+unique, no cysteine. Max pairwise identity **22%**, median 6% -- comfortably
+diverse.
+
+Top three: `ph_hot_L75_s406_11_his4_...` (sel 2.82, mouse 0.920, ipTM 0.765),
+`ph_hot_L75_s406_8_his4_...` (2.60 / 0.846 / 0.872),
+`affinity_L65_s401_11_his2_62_63` (2.81 / 0.776 / 0.826 -- from only two
+substitutions).
+
+### Honest caveats
+
+- **Charge.** Median net charge -2, but range -15 to +4 and two designs below
+  -10. The acidity is the *mechanism*, not an accident: selectivity rises with
+  free-state pKa and neighbouring Asp/Glu are what raise it. But strongly
+  negative proteins carry expression and solubility risk, and
+  soluble-ProteinMPNN was the only term pushing back. The two most negative
+  designs are the ones to drop first if slots are needed.
+- **`plddt_monomer` ~0.5 throughout.** These binders do not fold confidently on
+  their own. Unresolved whether that is a real liability or an artifact of
+  co-folding short de novo monomers (entry 18).
+- **Everything rests on PROPKA.** It passed the adalimumab/infliximab controls
+  (entry 6), which is a one-sided test: it shows the score does not invent
+  selectivity where none exists, not that it finds it reliably where it does.
+  No TNF binder with a published pH switch exists to use as a positive control.
+
+---
+
 ## Open / next
 
 - Overnight fleet: **19401911-19401918** (8 jobs, from 20:00), 12 h wall / 11 h

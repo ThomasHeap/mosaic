@@ -53,6 +53,37 @@ MAX_SINGLE_AA_FRACTION = 0.25
 # So weak binders are ordered last rather than discarded.
 MIN_IPTM_FOR_SELECTIVITY = 0.70
 
+# Selectivity is bucketed to this width before ordering, because differences
+# finer than our measurement error are not real. Calibration put PROPKA's error
+# on the pKa *shift* at 0.46 log10 per site (LOG.md entry 8), so treating a
+# 0.19 difference as decisive is false precision: it ranked a design with
+# selectivity 2.30 and mouse ipTM 0.436 above one with 2.11 and 0.917, trading
+# a large real difference in criterion #2 for a difference in criterion #1 that
+# is inside the noise. Within a bucket, order by the challenge's next criterion.
+SELECTIVITY_BUCKET = 0.5
+
+
+def dedupe_lineage(kept):
+    """Keep only the best member of each design lineage.
+
+    A histidine-scan variant differs from its parent by two to four residues,
+    and several variants of one parent differ from each other by one. Those are
+    not distinct designs: the challenge requires submissions to be unique and to
+    show adequate sequence and structural diversity, and spending two of forty
+    slots on near-identical sequences wastes one of them.
+
+    `kept` must already be sorted best-first, so the first member of a lineage
+    seen is the one to keep.
+    """
+    out, claimed = [], set()
+    for r in kept:
+        lineage = r.get("parent") or r["name"]
+        if lineage in claimed:
+            continue
+        claimed.add(lineage)
+        out.append(r)
+    return out
+
 
 def load(paths):
     seen_seq = {}
@@ -123,15 +154,14 @@ def sort_key(r):
     run, so a partially rescored pool still orders sensibly.
     """
     iptm = float(r.get("iptm") or 0.0)
+    sel = float(r.get("selectivity_log10") or 0.0)
     tier = 0 if iptm >= MIN_IPTM_FOR_SELECTIVITY else 1
     if tier == 0:
-        return (
-            tier,
-            -float(r.get("selectivity_log10") or 0.0),
-            -float(r.get("mouse_iptm") or 0.0),
-            -iptm,
-        )
-    return (tier, -iptm, -float(r.get("selectivity_log10") or 0.0), 0.0)
+        # Bucket down, so higher selectivity still sorts first between buckets
+        # while ties inside one are broken by mouse cross-reactivity.
+        bucket = -int(sel / SELECTIVITY_BUCKET)
+        return (tier, bucket, -float(r.get("mouse_iptm") or 0.0), -iptm, -sel)
+    return (tier, -iptm, -sel, 0.0, 0.0)
 
 
 def main():
@@ -170,7 +200,12 @@ def main():
         print(f"WARNING: {unscored}/{len(kept)} designs have no Tier 2 pH score; "
               f"their order is not meaningful for criterion #1")
 
-    selected = [r for r, _ in kept[: args.limit]]
+    ordered = dedupe_lineage([r for r, _ in kept])
+    dropped = len(kept) - len(ordered)
+    if dropped:
+        print(f"collapsed {dropped} near-duplicate designs "
+              f"(a scan variant and its parent, or siblings of one parent)")
+    selected = ordered[: args.limit]
     by_pool = {}
     for r in selected:
         by_pool[r.get("pool", "?")] = by_pool.get(r.get("pool", "?"), 0) + 1
