@@ -13,7 +13,13 @@ import csv
 import json
 from pathlib import Path
 
-VALID_CLASSES = {"protein", "nanobody", "scfv", "fab_kappa", "fab_lambda"}
+# The downloadable template (proteinbase.com/templates/competition-submission-
+# template.csv) labels a plain protein "single_chain". The challenge FAQ text
+# says "protein". The template is the file that gets filled in, so it is treated
+# as canonical and "protein" is accepted on input then normalised on output.
+VALID_CLASSES = {"protein", "single_chain", "nanobody", "scfv",
+                 "fab_kappa", "fab_lambda"}
+OUTPUT_CLASS = {"protein": "single_chain"}
 MIN_LEN, MAX_LEN = 10, 250
 
 # C-alpha RMSD between the binder predicted alone and in complex. The Nipah
@@ -61,6 +67,58 @@ MIN_IPTM_FOR_SELECTIVITY = 0.70
 # a large real difference in criterion #2 for a difference in criterion #1 that
 # is inside the noise. Within a bucket, order by the challenge's next criterion.
 SELECTIVITY_BUCKET = 0.5
+
+
+def portfolio(ordered, limit):
+    """Build a deliberately hedged selection rather than a single ranking.
+
+    Only 8 designs clear selectivity 2.0 *and* mouse ipTM 0.80 *and* ipTM 0.75
+    simultaneously, so a 20-slot submission cannot be uniformly strong. A strict
+    sort resolves that trade-off implicitly and badly: it fills the list with the
+    highest selectivity, some of which barely bind mouse TNF at all, and
+    criterion #2 is mouse cross-reactivity.
+
+    So the slots are split explicitly:
+      - a core of all-rounders, decent on all three criteria
+      - a bet on criterion #1: highest selectivity, whatever the mouse number
+      - a bet on criterion #2: highest mouse, whatever the selectivity
+    If one criterion dominates in the lab, one of the bets pays; the core is
+    what pays if none does. `ordered` must already be ranked and deduped.
+    """
+    core = [r for r in ordered
+            if (r.get("selectivity_log10") or 0) >= 1.7
+            and (r.get("mouse_iptm") or 0) >= 0.80
+            and (r.get("iptm") or 0) >= 0.75]
+    picked, names = list(core[:limit]), {r["name"] for r in core[:limit]}
+
+    # Every hedge pick must still clear the binding floor. Without this the
+    # mouse hedge pulled in a design at ipTM 0.352 with selectivity 0.01 -- a
+    # near-certain non-binder, which scores nothing on *any* criterion and so
+    # hedges nothing. A bet on one criterion is only a bet if the design binds.
+    eligible = [r for r in ordered
+                if (r.get("iptm") or 0) >= MIN_IPTM_FOR_SELECTIVITY]
+
+    def fill(key, n):
+        for r in sorted(eligible, key=key):
+            if len(picked) >= limit or n <= 0:
+                return
+            if r["name"] in names:
+                continue
+            picked.append(r)
+            names.add(r["name"])
+            n -= 1
+
+    remaining = limit - len(picked)
+    # Split the leftover slots evenly between the two bets.
+    fill(lambda r: -(r.get("selectivity_log10") or 0), remaining - remaining // 2)
+    fill(lambda r: -(r.get("mouse_iptm") or 0), limit - len(picked))
+    # Any slots still open go to the plain ranking.
+    fill(lambda r: eligible.index(r), limit - len(picked))
+
+    print(f"portfolio: {len(core[:limit])} all-rounders "
+          f"(sel>=1.7, mouse>=0.80, ipTM>=0.75) + "
+          f"{len(picked) - len(core[:limit])} hedge picks")
+    return picked[:limit]
 
 
 def dedupe_lineage(kept):
@@ -169,6 +227,8 @@ def main():
     ap.add_argument("jsonl", nargs="+")
     ap.add_argument("--out", type=Path, default=Path("submission.csv"))
     ap.add_argument("--limit", type=int, default=40)
+    ap.add_argument("--portfolio", action="store_true",
+                    help="hedge across the three criteria instead of a strict sort")
     args = ap.parse_args()
 
     records = load(args.jsonl)
@@ -205,7 +265,8 @@ def main():
     if dropped:
         print(f"collapsed {dropped} near-duplicate designs "
               f"(a scan variant and its parent, or siblings of one parent)")
-    selected = ordered[: args.limit]
+    selected = (portfolio(ordered, args.limit) if args.portfolio
+                else ordered[: args.limit])
     by_pool = {}
     for r in selected:
         by_pool[r.get("pool", "?")] = by_pool.get(r.get("pool", "?"), 0) + 1
@@ -215,7 +276,8 @@ def main():
         w = csv.writer(fh)
         w.writerow(["name", "sequence", "molecule_class"])
         for r in selected:
-            w.writerow([r["name"], r["sequence"], r["molecule_class"]])
+            cls = r["molecule_class"]
+            w.writerow([r["name"], r["sequence"], OUTPUT_CLASS.get(cls, cls)])
     print(f"wrote {args.out}")
 
 
