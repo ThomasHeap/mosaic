@@ -74,6 +74,22 @@ Epitope: the 52 footprint residues, keeping the TMD subset (190-241, 298-313,
 Truncating the receptor to its extracellular part would remove the belt by
 construction but also the pocket, so template the full 24-432 instead.
 
+## Model choice: Boltz-2, measured
+
+Boltz-2 handles the target. A templated 384-residue receptor plus a 40-residue
+binder predicts in 19.9 s at mean pLDDT 0.810, and reproduces the template:
+CA RMSD 1.86 A over the transmembrane domain, 2.70 A over the ECD, 3.66 A over
+the orthosteric epitope. The bundle survives, so the pocket being designed into
+exists in the prediction. The epitope is the loosest region, which is expected
+for a deep pocket and is the number to watch.
+
+Protenix is unusable here without patching mosaic. Its target_only_features
+passes template=c.template_chain straight to protenix's featurize, which
+dereferences .res_id, and binder_features builds the binder as
+TargetChain("X" * n) with no template. A designed binder has no template by
+definition, so every design call fails on AttributeError. It remains an option
+as an independent scorer if protenix.py is patched to tolerate a null template.
+
 ## Open question to settle first
 
 Whether reproducing the activation chemistry counts as de novo. The N-terminal

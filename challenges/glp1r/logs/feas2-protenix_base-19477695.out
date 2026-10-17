@@ -1,0 +1,37 @@
+cpu-bind=MASK - bp1-gpu039, task  0  0 [1634798]: mask 0xff00000000000000ff00000000000000 set
+receptor 384 aa, binder 40 aa, total 424
+epitope 52 residues, lipid belt 65
+2026-10-17 09:01:35,014 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/jax/_src/xla_bridge.py:837] INFO jax._src.xla_bridge: Unable to initialize backend 'tpu': INTERNAL: Failed to open libtpu.so: libtpu.so: cannot open shared object file: No such file or directory
+model protenix_base
+2026-10-17 09:01:42,298 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:02 estimate remaining: 00:00]
+2026-10-17 09:01:45,432 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/ccd.py:90] WARNING protenix.data.ccd: Warning: get_component_atom_array() can not parse GLU
+Traceback (most recent call last):
+  File "/user/work/cp20141/repos/mosaic/challenges/glp1r/feasibility.py", line 118, in <module>
+    main()
+  File "/user/work/cp20141/repos/mosaic/challenges/glp1r/feasibility.py", line 74, in main
+    feats, writer = model.target_only_features(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/equinox/_module/_prebuilt.py", line 46, in __call__
+    return self.__func__(self.__self__, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/user/work/cp20141/repos/mosaic/src/mosaic/models/protenix.py", line 63, in target_only_features
+    features_dict, atom_array, _ = featurize(
+                                   ^^^^^^^^^^
+  File "/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/template/template_featurizer.py", line 572, in featurize
+    sample2feat = SampleDictToFeatures(sample)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/json_to_feature.py", line 34, in __init__
+    self.input_dict = add_entity_atom_array(single_sample_dict)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/json_parser.py", line 605, in add_entity_atom_array
+    atom_info = build_polymer(entity_info)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/json_parser.py", line 345, in build_polymer
+    chain_array = _build_polymer_atom_array(ccd_seqs)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/json_parser.py", line 293, in _build_polymer_atom_array
+    residue.res_id[:] = res_id + 1
+    ^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'res_id'
