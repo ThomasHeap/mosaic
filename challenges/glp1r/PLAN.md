@@ -118,15 +118,32 @@ that. It is geometric -- the binder has to reach TM2/TM3, ECL2/TM5 and TM7 -- so
 there is no cheap second stage to fall back on and it has to be designed in.
 Expect the in-loop objective to carry the whole burden here.
 
-## Open question to settle first
+## De novo compliance: settled
 
-Whether reproducing the activation chemistry counts as de novo. The N-terminal
-contacts are chemically constrained (His7 and Glu9 make specific polar contacts),
-so a working agonist will likely recapitulate them. The rules forbid starting
-from an existing binder or modifying one, and require sequence and structural
-diversity from known proteins; they do not obviously forbid matching functional
-contact chemistry with a divergent sequence. This decides the whole approach and
-should be resolved before any compute is spent.
+Adaptyv's novelty scale scores only global sequence identity (MMseqs2) and
+domain-level structural similarity (Foldseek, TM-align). It does not look at
+contact residues; the only residue-level test is CDRH3 edit distance for
+antibodies. A design at <= 30% identity with below-moderate structural
+similarity is level 4 whether or not it reuses a known binding mode.
+
+Their definition of de novo nonetheless excludes "grafting a motif onto a
+natural scaffold", while describing current practice approvingly as conforming
+to a functional motif "rather than retrofitting an existing protein to host
+one". That separates the two things cleanly:
+
+  - Grafting GLP-1's N-terminal segment onto a scaffold is out. It is motif
+    grafting by their definition and relies on an existing binder as a starting
+    point, which the hard criteria forbid outright.
+  - Constraining the design to contact TM2/TM3, ECL2/TM5 and TM7 is in. That is
+    a property of the target, not a borrowed piece of the ligand, and the binder
+    sequence is found by optimisation.
+
+So: never seed from GLP-1 or exendin-4, constrain the epitope, and screen the
+result. Designs are checked for identity against the known GLP1R ligands --
+GLP-1 7-37, exendin-4, liraglutide, semaglutide, tirzepatide -- and anything at
+or above 30% to any of them is dropped regardless of how well it scores. The
+TNF pool gave the equivalent check a clean result, with no match to any known
+TNF binder across 13,514 Foldseek hits.
 
 ## Reuse from tnf_alpha
 
