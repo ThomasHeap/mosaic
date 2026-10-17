@@ -1,4 +1,9 @@
 pdb_cache/
 logs/
 designs/
+# Keep the scored data: ~0.3 MB compressed against ~19 GPU-hours to regenerate
+# (1368 rescored rows at ~49 s each). Predicted structures stay ignored, being
+# 182 MB and rewritten by rescore.py on demand.
+!designs/*.jsonl
+!designs_fleet2/*.jsonl
 pka_params.json

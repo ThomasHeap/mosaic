@@ -77,7 +77,7 @@ def main():
     print(f"featurisation {t_feat:.1f}s", flush=True)
 
     t0 = time.time()
-    pred = model.predict(feats, writer=writer,
+    pred = model.predict(features=feats, writer=writer,
                          recycling_steps=args.recycling_steps,
                          sampling_steps=args.sampling_steps,
                          key=jax.random.PRNGKey(0))
