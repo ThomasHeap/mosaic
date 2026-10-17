@@ -1,0 +1,71 @@
+cpu-bind=MASK - bp1-gpu039, task  0  0 [1730752]: mask 0xff00000000000000ff00 set
+2026-10-17 23:33:50,634 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/jax/_src/xla_bridge.py:837] INFO jax._src.xla_bridge: Unable to initialize backend 'tpu': INTERNAL: Failed to open libtpu.so: libtpu.so: cannot open shared object file: No such file or directory
+full receptor 384 aa; two-state region 258 aa
+2026-10-17 23:33:54,228 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:02 estimate remaining: 00:00]
+2026-10-17 23:34:04,237 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-10-17 23:34:27,621 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:01 estimate remaining: 00:00]
+2026-10-17 23:34:29,185 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-10-17 23:34:49,227 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:02 estimate remaining: 00:00]
+2026-10-17 23:34:51,745 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+  GLP1_7_37            agonist              affinity +0.900  active +0.355  inactive +0.360  delta -0.005
+2026-10-17 23:34:56,183 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:01 estimate remaining: 00:00]
+2026-10-17 23:34:57,942 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-10-17 23:35:20,498 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]
+2026-10-17 23:35:21,389 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-10-17 23:35:41,706 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:01 estimate remaining: 00:00]
+2026-10-17 23:35:43,629 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+  exendin4             agonist              affinity +0.879  active +0.304  inactive +0.275  delta +0.030
+2026-10-17 23:35:47,937 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]
+2026-10-17 23:35:48,764 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-10-17 23:36:11,633 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]
+2026-10-17 23:36:12,394 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-10-17 23:36:32,562 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:01 estimate remaining: 00:00]
+2026-10-17 23:36:34,414 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+  GLP1_9_37            binder_not_agonist   affinity +0.866  active +0.324  inactive +0.481  delta -0.157
+2026-10-17 23:36:38,509 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]
+2026-10-17 23:36:39,352 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-10-17 23:37:01,889 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:01 estimate remaining: 00:00]
+2026-10-17 23:37:03,899 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-10-17 23:37:23,690 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]
+2026-10-17 23:37:24,435 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+  scrambled            negative             affinity +0.556  active +0.512  inactive +0.454  delta +0.058
+2026-10-17 23:37:28,144 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]
+2026-10-17 23:37:28,868 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-10-17 23:37:48,809 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]
+2026-10-17 23:37:49,498 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-10-17 23:38:07,483 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
+  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
+COMPLETE: 100%|██████████| 100/100 [elapsed: 00:01 estimate remaining: 00:00]
+2026-10-17 23:38:09,360 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+  polyA                negative             affinity +0.565  active +0.247  inactive +0.378  delta -0.131
+
+agonists delta -0.005..+0.030   negatives delta -0.131..+0.058
+The proxy is usable only if the agonists sit clearly above the negatives, and ideally above GLP1_9_37, which binds without activating.

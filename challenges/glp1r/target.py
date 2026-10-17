@@ -141,3 +141,93 @@ if __name__ == "__main__":
     print(f"overlap             {len(set(ep) & set(belt))}")
     print(f"epitope offsets     {to_target_index(ep)[:8]} ...")
     print(f"belt offsets        {to_target_index(belt)[:8]} ...")
+
+
+INACTIVE_CIF = Path(__file__).with_name("structures") / "5vew.cif"
+# 5vew chain A is a crystallisation construct: residues 1002-1161 are a fusion
+# partner inserted in ICL3, not receptor. Templating the chain as deposited
+# would put 160 residues of lysozyme in the model.
+FUSION_MIN = 1000
+
+
+def inactive_template_chain(cif: Path | None = None) -> gemmi.Chain:
+    """Chain A of 5vew with the ICL3 fusion partner removed.
+
+    The inactive state is the other half of the agonism proxy: a design that
+    binds the active conformation better than this one stabilises the active
+    state, which is what agonism is thermodynamically.
+    """
+    st = gemmi.read_structure(str(cif or INACTIVE_CIF))
+    st.setup_entities()
+    st.remove_ligands_and_waters()
+    chain = {c.name: c for c in st[0]}["A"]
+    keep = gemmi.Chain("A")
+    for r in chain:
+        if r.seqid.num < FUSION_MIN:
+            keep.add_residue(r)
+    return keep
+
+
+def two_state_common_residues(cif_active=None, cif_inactive=None) -> list[int]:
+    """Residue numbers resolved in both the active and inactive structures.
+
+    The two come from different constructs -- 5vew is transmembrane-only and
+    384 against 263 residues -- so comparing binding between them without
+    restricting to the shared set confounds conformation with construct.
+    """
+    R, _ = _receptor_and_peptide(cif_active)
+    act = {r.seqid.num for r in R if r.find_atom("CA", "*")}
+    ina = {r.seqid.num for r in inactive_template_chain(cif_inactive)
+           if r.find_atom("CA", "*")}
+    return sorted(act & ina)
+
+
+def restrict_chain(chain: gemmi.Chain, resnums) -> gemmi.Chain:
+    """A copy of `chain` holding only `resnums`."""
+    keep = set(resnums)
+    out = gemmi.Chain(chain.name)
+    for r in chain:
+        if r.seqid.num in keep:
+            out.add_residue(r)
+    return out
+
+
+def chain_sequence(chain: gemmi.Chain) -> str:
+    return gemmi.one_letter_code([r.name for r in chain])
+
+
+# Receptor residues within 4.5 A of GLP-1 His7-Thr11, the segment whose removal
+# costs 1000-10000x cAMP potency against 100-300x affinity. Spread across TM1,
+# TM2, TM3, TM5, TM6 and TM7, i.e. the helices whose rearrangement is activation.
+ACTIVATION_CORE = [152, 190, 194, 233, 234, 237, 241, 300, 306, 309, 310, 313,
+                   372, 380, 384, 387, 388, 391]
+
+
+def activation_core(cif: Path | None = None, recompute: bool = False) -> list[int]:
+    """Receptor residues contacted by GLP-1's activating N-terminal segment.
+
+    Used instead of an active-minus-inactive binding differential, which was
+    measured and does not work: over GLP-1, exendin-4, GLP-1 9-37, a scrambled
+    peptide and poly-alanine the delta ran -0.005 to +0.030 for the agonists and
+    -0.131 to +0.058 for the negatives, with the scrambled peptide scoring the
+    highest delta of all. Two reasons it cannot work here. The inactive
+    structure 5vew is transmembrane-only, so every ligand binds it and the
+    active construct badly -- ipTM 0.25 to 0.51 against 0.87 to 0.90 on the full
+    receptor -- and the differential is noise on top of a weak signal. And
+    agonism is not a binding preference, it is whether a specific pocket is
+    engaged, which a scalar affinity difference does not express.
+
+    Contacting these residues is a geometric condition, checkable on one
+    prediction with nothing to calibrate. It does not prove a design activates;
+    it establishes that the design engages the machinery that activation
+    requires, which is the strongest statement available without a cell assay.
+    """
+    if not recompute:
+        return list(ACTIVATION_CORE)
+    R, P = _receptor_and_peptide(cif)
+    ra = _heavy(R)
+    seg = [(n, x) for n, x in _heavy(P) if 7 <= n <= 11]
+    RX = np.array([x for _, x in ra])
+    SX = np.array([x for _, x in seg])
+    D = np.linalg.norm(RX[:, None] - SX[None, :], axis=-1)
+    return sorted({ra[i][0] for i in range(len(ra)) if (D[i] < CONTACT_CUTOFF).any()})

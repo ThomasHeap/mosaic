@@ -50,6 +50,46 @@ adapts rather than being discarded. Note 5vew is TMD-only (no ECD) and a
 different construct length, so the comparison has to be restricted to the common
 TMD region or it confounds conformation with construct.
 
+## Agonism: a geometric criterion, not a binding differential
+
+The planned proxy, active-minus-inactive binding, was measured on known ligands
+and does not work:
+
+  ligand          kind                affinity   active  inactive    delta
+  GLP-1 7-37      agonist                0.900    0.355     0.360   -0.005
+  exendin-4       agonist                0.879    0.304     0.275   +0.030
+  GLP-1 9-37      binds, no activation   0.866    0.324     0.481   -0.157
+  scrambled       negative               0.556    0.512     0.454   +0.058
+  poly-alanine    negative               0.565    0.247     0.378   -0.131
+
+Agonists span -0.005 to +0.030 and negatives -0.131 to +0.058, overlapping
+completely, with the scrambled peptide scoring the highest delta of anything.
+Two reasons. 5vew is transmembrane-only, so every ligand binds both constructs
+badly (0.25-0.51 against 0.87-0.90 on the full receptor) and the difference is
+noise on a weak signal. And agonism is not a binding preference between two
+conformations; it is whether one specific pocket is engaged, which a scalar
+affinity difference cannot express.
+
+The affinity channel is validated by the same run: real ligands score 0.866 to
+0.900 and negatives 0.556 to 0.565, a clean 0.3 separation on the full active
+receptor. Objective 01 has a trustworthy score. Note also that GLP-1 9-37
+scores 0.866, essentially tied with intact GLP-1 at 0.900 -- the affinity score
+correctly reports that it binds and correctly says nothing about whether it
+activates.
+
+So activation is handled geometrically. target.ACTIVATION_CORE is the 18
+receptor residues within 4.5 A of GLP-1 His7-Thr11, the segment whose removal
+costs 1000-10000x cAMP potency against 100-300x affinity: 152, 190, 194, 233,
+234, 237, 241, 300, 306, 309, 310, 313, 372, 380, 384, 387, 388, 391, spread
+over TM1, TM2, TM3, TM5, TM6 and TM7. All 18 lie inside the orthosteric
+epitope; two also fall in the lipid belt and are excluded there.
+
+Contacting them is checkable on a single prediction with nothing to calibrate.
+It does not prove activation. It establishes that a design engages the
+machinery activation requires, which is the strongest claim available without a
+cell assay, and it is a condition the ECD-only binders the challenge page
+recommends would fail.
+
 ## Epitope must be specified, and so must an exclusion zone
 
 The epitope cannot be left to the optimiser, for a reason TNF did not have. In
