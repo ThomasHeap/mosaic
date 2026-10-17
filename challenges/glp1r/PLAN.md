@@ -74,21 +74,49 @@ Epitope: the 52 footprint residues, keeping the TMD subset (190-241, 298-313,
 Truncating the receptor to its extracellular part would remove the belt by
 construction but also the pocket, so template the full 24-432 instead.
 
-## Model choice: Boltz-2, measured
+## Model choice: ProtenixBase
 
-Boltz-2 handles the target. A templated 384-residue receptor plus a 40-residue
-binder predicts in 19.9 s at mean pLDDT 0.810, and reproduces the template:
-CA RMSD 1.86 A over the transmembrane domain, 2.70 A over the ECD, 3.66 A over
-the orthosteric epitope. The bundle survives, so the pocket being designed into
-exists in the prediction. The epitope is the loosest region, which is expected
-for a deep pocket and is the number to watch.
+Measured on the templated 384-residue receptor plus a 40-residue binder, CA RMSD
+against the 6x18 template:
 
-Protenix is unusable here without patching mosaic. Its target_only_features
-passes template=c.template_chain straight to protenix's featurize, which
-dereferences .res_id, and binder_features builds the binder as
-TargetChain("X" * n) with no template. A designed binder has no template by
-definition, so every design call fails on AttributeError. It remains an option
-as an independent scorer if protenix.py is patched to tolerate a null template.
+  model           time   pLDDT    all    ECD    TMD   epitope
+  boltz2         19.9s   0.810   4.30   2.70   1.86   3.66
+  protenix_mini  11.9s   0.774   5.70   4.03   2.35   3.85
+  protenix_base  14.7s   0.814   4.12   3.14   1.14   2.54
+
+ProtenixBase for design, Boltz-2 to score. The orthosteric epitope is the
+surface being designed into and ProtenixBase reproduces it at 2.54 A against
+3.66, while also being faster. Boltz-2 is better on the ECD alone. Scoring with
+the model that did the designing is how a binder to a pocket that does not exist
+gets a high score, and neither model represents a membrane, so they share that
+blind spot but not their individual artefacts.
+
+An earlier note here said Protenix could not be used without patching mosaic.
+That was wrong. Both CCD files had been truncated by a download timeout -- 63 MB
+of 408 MB, stopping at 6548 of 43677 component blocks -- so every residue lookup
+returned None, including ALA and GLY.
+
+## What the TNF work implies for this challenge
+
+Two transfers and one warning.
+
+Novelty is a hard criterion and enters ranking from the start here, not after
+the fact. novelty.py and the Foldseek PDB database at
+/user/work/cp20141/foldseek_db are already built. In TNF it moved the submission
+from 13 clean of 20 to 15 with no cost to the scored criteria, but only once
+mouse ipTM was bucketed so it had slack to bind on.
+
+Check the conjunction rate early. TNF Track 3's difficulty was that three
+independent criteria at 16.7%, 44.9% and 35.3% intersect at 2.9%. Here there are
+two, affinity and activation, and the equivalent number should be measured on
+the first fleet rather than assumed.
+
+The warning: 87% of TNF's all-rounders came from post-hoc histidine scanning,
+not from design, because installing a pH switch is a sequence substitution on a
+fixed backbone and can be done after the fact for free. Agonism is not like
+that. It is geometric -- the binder has to reach TM2/TM3, ECL2/TM5 and TM7 -- so
+there is no cheap second stage to fall back on and it has to be designed in.
+Expect the in-loop objective to carry the whole burden here.
 
 ## Open question to settle first
 
