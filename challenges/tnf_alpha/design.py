@@ -54,6 +54,7 @@ import mosaic.losses.structure_prediction as sp  # noqa: I001
 from mosaic.common import TOKENS
 from mosaic.losses.esmc import ESMCPseudoPerplexity, load_esmc
 from mosaic.losses.protein_mpnn import InverseFoldingSequenceRecovery
+from paratope_mpnn import ScaffoldInverseFoldingRecovery
 from mosaic.losses.transformations import NoCys
 from mosaic.models.boltz2 import Boltz2
 from mosaic.optimizers import simplex_APGM
@@ -97,7 +98,7 @@ MAX_GRAD_NORM = 1.0
 def build_objective(
     model, binder_length, epitope_idx, his_target, mpnn, gravity_weight=1.0,
     physics=False, num_samples=4, monomer_weight=2.0, esm_weight=0.5,
-    esmc=None,
+    esmc=None, paratope_floor=1.0,
 ):
     """Complex objective plus a monomer branch that pressures foldability.
 
@@ -125,7 +126,20 @@ def build_objective(
     loss = (
         1.0 * sp.BinderTargetContact(epitope_idx=epitope_idx, contact_distance=20.0)
         + 1.0 * sp.WithinBinderContact()
-        + 10.0 * InverseFoldingSequenceRecovery(mpnn, temp=jnp.array(0.001))
+        # MPNN at weight 10.0 and temp 0.001 decides interface composition, and
+        # soluble MPNN never puts histidine at a buried contact. Designed
+        # parents carry ~6 histidines with a median of zero at the interface,
+        # the mode sitting one residue away. paratope_floor < 1 down-weights
+        # MPNN over contacting positions so the pH terms can reach them;
+        # 1.0 is the stock term exactly.
+        + 10.0 * (
+            InverseFoldingSequenceRecovery(mpnn, temp=jnp.array(0.001))
+            if paratope_floor >= 1.0
+            else ScaffoldInverseFoldingRecovery(
+                mpnn=mpnn, temp=jnp.array(0.001), epitope_idx=epitope_idx,
+                paratope_floor=paratope_floor,
+            )
+        )
         # Confidence terms, weights from the Nipah recipe.
         + 0.05 * sp.BinderTargetPAE()
         + 0.05 * sp.TargetBinderPAE()
@@ -230,6 +244,9 @@ def main():
     ap.add_argument("--gravity-weight", type=float, default=1.0)
     ap.add_argument("--monomer-weight", type=float, default=2.0,
                     help="weight on the monomer foldability branch; 0 disables")
+    ap.add_argument("--paratope-floor", type=float, default=1.0,
+                    help="residual MPNN weight at contacting positions; "
+                         "1.0 is the stock inverse-folding term")
     ap.add_argument("--esm-weight", type=float, default=0.5,
                     help="weight on ESMC pseudo-perplexity; 0 disables")
     ap.add_argument("--seed", type=int, default=0)
@@ -263,6 +280,7 @@ def main():
         gravity_weight=args.gravity_weight, physics=physics,
         num_samples=args.num_samples, monomer_weight=args.monomer_weight,
         esm_weight=args.esm_weight, esmc=esmc,
+        paratope_floor=args.paratope_floor,
     )
 
     # Seed is in the filename: several jobs run the same pool/length overnight,

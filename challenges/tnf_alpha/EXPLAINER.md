@@ -226,10 +226,24 @@ direction while PROPKA did all the ranking.
 2. **During design:** the differentiable pKa model estimates pKa_free and
    pKa_bound from one complex prediction — binder neighbours alone give the free
    state, adding the target gives the bound state — and the linkage relation
-   turns them into an objective.
+   turns them into an objective. This step does not work. Across 133 designed
+   parents the median number of histidines at the interface is zero, against a
+   random-placement expectation of 1.29, while total histidine content sits at
+   about 6 per design. The histidines are placed one residue from a contacting
+   position (2.41 per design against 1.04 expected), which on a helix is the
+   off-contact face. The cause is not ProteinMPNN suppressing histidine in the
+   paratope: measured over 40 complexes, MPNN assigns P(His) 0.0295 at interface
+   positions against 0.0243 elsewhere, slightly favouring it. The remaining
+   candidates are the affinity terms, which see histidine at a buried contact as
+   a predicted-iPTM cost, and a pose shift between design at one recycling step
+   and rescoring at three.
 3. **After designing:** PROPKA is run on the predicted complex and the predicted
    free binder, and the same relation converts the two pKa sets into S. This is
-   the number used for ranking.
+   the number used for ranking. Because step 2 does not place histidines,
+   interface histidine scanning after the fact is what actually produces the
+   switch: raw design parents clear all three challenge criteria at 0.6%,
+   against 5.8% for scanned variants, and 13 of the 15 all-rounders in the first
+   submission were variants rather than parents.
 4. **Validation:** two known non-pH-dependent binders of this epitope,
    adalimumab and infliximab, score −0.312 and +0.385 against a target of ~2.0.
 
