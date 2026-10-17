@@ -149,18 +149,17 @@ the pKa shift is 0.46 log10 per site and finer distinctions are not measurable.
 Foldseek (PDB 05.2024) was run on the monomer structures from rescore.py against
 Adaptyv's published thresholds, where level 4 de novo requires sequence identity
 <= 30% and below-moderate structural similarity, moderate being > 70% coverage at
-TM-score >= 0.5.
+TM-score >= 0.5. Tiers feed rank.py as a tie-break beneath the three scored
+criteria, which is where they bind: mouse ipTM is bucketed at 0.1 first, since a
+0.03 difference in a predicted metric should not decide a slot.
 
-13 of the twenty submitted are below moderate, 6 are moderate and one is high.
-The seven are kept, and are among the stronger binders in the set. The high one,
-tnf_ph_hot_L55_s8104_10_his3_3_4_6 against 5tpt, is the only design that reaches
-Adaptyv's upper tier and so rates novelty level 2 rather than 3:
+15 of the twenty are below moderate and 5 are moderate. None reach the
+high tier. The 5 are kept rather than replaced; all twenty remain distinct
+lineages and clear all three scored criteria:
 
-  tnf_physics_L55_s508_14_his4_31_30_9_12    TM 0.558  qcov 0.91  ipTM 0.933
   tnf_ph_L55_s505_17_his4_29_40_30_23        TM 0.656  qcov 0.89  ipTM 0.902
   tnf_ph_hot_L75_s406_8_his4_66_67_70_73     TM 0.751  qcov 0.85  ipTM 0.872
   tnf_ph_hot_L75_s8106_9_his4_24_16_66_73    TM 0.669  qcov 0.80  ipTM 0.858
-  tnf_ph_hot_L55_s8104_10_his3_3_4_6         TM 0.835  qcov 0.87  ipTM 0.815
   tnf_ph_hot_L65_s8105_10_his4_30_28_1_64    TM 0.652  qcov 0.83  ipTM 0.769
   tnf_ph_hot_L75_s406_11_his4_72_65_68_30    TM 0.651  qcov 0.95  ipTM 0.765
 

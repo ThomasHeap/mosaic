@@ -10,6 +10,7 @@ arrives here as fields on the JSONL records.
 
 import argparse
 import csv
+import glob
 import json
 from pathlib import Path
 
@@ -67,6 +68,16 @@ MIN_IPTM_FOR_SELECTIVITY = 0.70
 # a large real difference in criterion #2 for a difference in criterion #1 that
 # is inside the noise. Within a bucket, order by the challenge's next criterion.
 SELECTIVITY_BUCKET = 0.5
+# Mouse ipTM is bucketed for the same reason selectivity is: a 0.03 difference
+# in a predicted metric is not a real difference and should not decide a slot.
+# What breaks the tie instead is structural novelty, which is a hard criterion
+# for this competition and was otherwise unused in ranking. It sits below all
+# three scored criteria, never above them. Without the bucket it never binds:
+# tried as a pure tie-break on exact values it moved one design of twenty.
+MOUSE_BUCKET = 0.1
+# Adaptyv's tiers, best first. Unscreened designs rank with "moderate" so a
+# missing measurement neither rewards nor penalises.
+NOVELTY_RANK = {"below_moderate": 0, "moderate": 1, "unscreened": 1, "high": 2}
 # Monomer confidence is deliberately NOT a selection term here, and that is a
 # measured decision rather than an oversight. Two models agree these designs are
 # far less confidently folded in isolation than GB1/Top7 (medians 0.54 Boltz-2
@@ -163,6 +174,22 @@ def dedupe_lineage(kept):
     return out
 
 
+def load_novelty(paths):
+    """name -> structural tier, from novelty.py output."""
+    tiers = {}
+    for path in paths:
+        pp = Path(path)
+        if not pp.exists():
+            continue
+        for line in pp.read_text().splitlines():
+            if not line.strip():
+                continue
+            d = json.loads(line)
+            if d.get("structural_tier"):
+                tiers[d["name"]] = d["structural_tier"]
+    return tiers
+
+
 def load(paths):
     seen_seq = {}
     records = []
@@ -238,8 +265,10 @@ def sort_key(r):
         # Bucket down, so higher selectivity still sorts first between buckets
         # while ties inside one are broken by mouse cross-reactivity.
         bucket = -int(sel / SELECTIVITY_BUCKET)
-        return (tier, bucket, -float(r.get("mouse_iptm") or 0.0), -iptm, -sel)
-    return (tier, -iptm, -sel, 0.0, 0.0)
+        mouse_bucket = -int(float(r.get("mouse_iptm") or 0.0) / MOUSE_BUCKET)
+        novelty = NOVELTY_RANK.get(r.get("structural_tier", "unscreened"), 1)
+        return (tier, bucket, mouse_bucket, novelty, -iptm, -sel)
+    return (tier, -iptm, -sel, 0.0, 0.0, 0.0)
 
 
 def main():
@@ -247,11 +276,22 @@ def main():
     ap.add_argument("jsonl", nargs="+")
     ap.add_argument("--out", type=Path, default=Path("submission.csv"))
     ap.add_argument("--limit", type=int, default=40)
+    ap.add_argument("--novelty", nargs="*", default=None,
+                    help="novelty.py jsonl files; tiers break ties under the "
+                         "three scored criteria")
     ap.add_argument("--portfolio", action="store_true",
                     help="hedge across the three criteria instead of a strict sort")
     args = ap.parse_args()
 
     records = load(args.jsonl)
+    tiers = load_novelty(args.novelty or glob.glob("probe/novelty*.jsonl"))
+    if tiers:
+        for r in records:
+            if r["name"] in tiers:
+                r["structural_tier"] = tiers[r["name"]]
+        print(f"novelty tiers attached to {sum(1 for r in records if 'structural_tier' in r)}"
+              f" of {len(records)} designs")
+
     kept, rejected = [], []
     for r in records:
         problems = check(r)
