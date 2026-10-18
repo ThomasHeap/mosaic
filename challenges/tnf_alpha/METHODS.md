@@ -70,8 +70,8 @@ Asp and Glu raise. Several submitted designs are consequently acidic (net charge
 
 This was checked against measured antibodies before designing. Infliximab's
 CDR-L3 His92 shows a −2.35 pKa shift on binding but contributes only +0.33
-log10, because its free-state pKa is 6.09. TNF's own His15 and His78, at
-pKa_free 5.06 and 4.01, contribute 0.044 and 0.003.
+log10, because its free-state pKa is 6.09. A large shift on a low-pKa histidine
+buys almost nothing.
 
 ## Design
 
@@ -147,8 +147,9 @@ filling 7 of 20 slots with designs strong on one and weak on another, because
 only 15 pool designs then cleared all three. Histidine scanning the later design
 batches raised that to 29 and the hedging became unnecessary.
 
-Selectivity is bucketed at 0.5 log10 before ordering, because PROPKA's error on
-the pKa shift is 0.46 log10 per site and finer distinctions are not measurable.
+Selectivity is bucketed at 0.5 log10 before ordering, so that designs within
+roughly one PROPKA site-error of each other are ranked by the next criterion
+rather than by a difference the predictor cannot resolve.
 
 ## Novelty screen
 
