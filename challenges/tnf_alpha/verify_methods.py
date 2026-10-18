@@ -29,7 +29,8 @@ def main():
             d = json.loads(line)
             rec.setdefault(d["sequence"], d)
     sub = list(csv.DictReader(open("submission.csv")))
-    s = [rec[r["sequence"]] for r in sub if r["sequence"] in rec]
+    s_ = [rec[r["sequence"]] for r in sub if r["sequence"] in rec]
+    s = s_
     col = lambda k: sorted(float(d[k]) for d in s if d.get(k) is not None)
     ident = lambda a, b: (lambda n: sum(x == y for x, y in zip(a[:n], b[:n])) / n)(
         min(len(a), len(b)))
@@ -57,7 +58,27 @@ def main():
           f"{min(charge)} to {max(charge):+d}, median {st.median(charge):+.0f}"
           .replace("-", "\u2212").replace("\u2212", "\u2212", 1))
 
-    from target import GROOVE_PROTOMER_1, GROOVE_PROTOMER_2, MOUSE_DIVERGENT
+    from target import (CORE_EPITOPE, GROOVE_PROTOMER_1, GROOVE_PROTOMER_2,
+                        MOUSE_DIVERGENT)
+    # Figures quoted in the Approach overview.
+    byname = {}
+    for fn in glob.glob("designs/rescored*.jsonl"):
+        for line in open(fn):
+            d = json.loads(line)
+            byname.setdefault(d["name"], d)
+    a3 = lambda d: ((d.get("selectivity_log10") or 0) >= 1.7
+                    and (d.get("mouse_iptm") or 0) >= 0.80
+                    and (d.get("iptm") or 0) >= 0.75)
+    par = [d for n, d in byname.items() if "_his" not in n]
+    var = [d for n, d in byname.items() if "_his" in n]
+    check("parents clearing all three", "0.4%",
+          f"{sum(1 for d in par if a3(d))/len(par):.1%}")
+    check("variants clearing all three", "3.7%",
+          f"{sum(1 for d in var if a3(d))/len(var):.1%}")
+    check("scan variants submitted", 19,
+          sum(1 for r in sub if "_his" in r["name"]))
+    check("core epitope, divergent", "6 of the twenty",
+          f"{len(set(MOUSE_DIVERGENT) & set(CORE_EPITOPE))} of the twenty")
     g = set(GROOVE_PROTOMER_1) | set(GROOVE_PROTOMER_2)
     check("groove footprint", 28, len(g))
     check("conserved groove positions", 24, len(g) - len(set(MOUSE_DIVERGENT) & g))
@@ -68,6 +89,20 @@ def main():
     r = (sum((a - mx) * (b - my) for a, b in rows)
          / (sum((a - mx) ** 2 for a, _ in rows) * sum((b - my) ** 2 for _, b in rows)) ** 0.5)
     check("r(ipTM, monomer pLDDT)", "+0.043", f"{r:+.3f}")
+
+    mono = sorted(float(d["plddt_monomer"]) for d in s_ if d.get("plddt_monomer") is not None)
+    check("monomer pLDDT (Boltz-2)", "0.53 / 0.43\u20130.65",
+          f"{st.median(mono):.2f} / {mono[0]:.2f}\u2013{mono[-1]:.2f}")
+    # ESMFold2 comes from foldcheck.py, which scores submission.csv directly.
+    import re as _re
+    esm = []
+    for fn in sorted(glob.glob("logs/foldchk3-*.out")):
+        m = _re.search(r"designs\s+([\d.]+)-([\d.]+) median ([\d.]+)", open(fn).read())
+        if m:
+            esm = [float(m.group(1)), float(m.group(2)), float(m.group(3))]
+    if esm:
+        check("monomer pLDDT (ESMFold2)", "0.46 / 0.36\u20130.53",
+              f"{esm[2]:.2f} / {esm[0]:.2f}\u2013{esm[1]:.2f}")
 
     cal = json.load(open("pka_params.json"))
     check("calibration complexes", 316, cal["n_complexes"])
@@ -112,7 +147,7 @@ def main():
     norm = doc.replace("\u2212", "-")
     for figure in ("55\u201375", "18%", "1,228", "735", "5\u201311", "1.74\u20133.22",
                    "0.811\u20130.964", "0.765\u20130.910", "+0.043", "316", "1,272",
-                   "0.38", "-0.312", "+0.385"):
+                   "0.38", "-0.312", "+0.385", "0.4%", "3.7%"):
         if figure.replace("\u2212", "-") not in norm:
             FAIL.append(f"{figure} absent from METHODS.md")
             print(f"  BAD figure {figure} is not in METHODS.md")

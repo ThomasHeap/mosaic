@@ -7,6 +7,34 @@ Tools: `mosaic` (Escalante Bio) for differentiable design, Boltz-2 for
 co-folding and scoring, soluble ProteinMPNN for inverse folding, PROPKA 3.5.1
 for pKa prediction. All open source. No commercial tools were used.
 
+## Approach
+
+Five stages, in order, each covered by a section below.
+
+1. **Epitope.** Computed from three solved complexes that occupy the receptor
+   site rather than chosen by hand, which also fixes two design decisions: the
+   groove spans two protomers, so designs are co-folded against a dimer, and six
+   of the twenty core residues differ in mouse, which makes cross-reactivity a
+   constraint on where the binder sits.
+2. **Design.** Differentiable optimisation against a templated TNF dimer, with
+   the published Nipah recipe as the affinity objective plus two terms for this
+   target: a signed epitope field that attracts the binder to conserved residues
+   and repels it from mouse-divergent ones, and a differentiable proton-linkage
+   term for pH selectivity.
+3. **Histidine scanning.** Which binder positions contact the epitope is an
+   output of optimisation, not an input, so histidines are installed after
+   design rather than during it. This is where the pH switch comes from in
+   practice: 19 of the 20 submitted designs are scan variants, and raw design
+   output clears all three criteria at 0.4% against 3.7% for variants.
+4. **Novelty.** Structural similarity to the PDB measured against Adaptyv's
+   published thresholds, since de novo status is a hard criterion.
+5. **Scoring and ranking.** Variants are refolded and scored on the three
+   challenge criteria, with novelty breaking ties beneath them.
+
+The pH-selectivity analysis in the next section is background to stages 2 and 3:
+it sets how many histidines are needed and which of the two available levers
+matters more, before any design was run.
+
 ## Epitope definition
 
 The epitope was computed from contacts rather than selected by hand. Heavy-atom
@@ -123,33 +151,6 @@ is +0.454 log10 and the maximum +5.262, 66% improve on their parent, and the
 median ipTM cost is −0.054. Nineteen of the 20 submitted designs came from this
 route.
 
-## Scoring and ranking
-
-Designs were refolded with full-sidechain features at `recycling_steps=3` and
-scored on four axes: pH selectivity (PROPKA on the predicted complex and the
-predicted free binder, combined through the linkage relation), mouse
-cross-reactivity (refolded against mouse TNF, P06804 mature sequence), affinity
-(ipTM and both ipSAE directions), and monomer/complex Cα RMSD.
-
-Negative controls: adalimumab and infliximab bind this groove and neither is
-pH-dependent. Scored through the same pipeline they give −0.312 and +0.385
-log10, against a target of approximately 2.0.
-
-All 20 designs clear selectivity 1.7, mouse ipTM 0.80 and ipTM 0.75
-simultaneously. Submitted ranges are selectivity 1.74–3.22 (median 2.25), mouse
-ipTM 0.811–0.964 (median 0.908) and ipTM 0.765–0.910 (median 0.864); 18 designs
-in the pool also clear the stricter selectivity 2.0. Each is the sole
-representative of its design lineage.
-
-Earlier revisions of this submission were hedged across the three criteria,
-filling 7 of 20 slots with designs strong on one and weak on another, because
-only 15 pool designs then cleared all three. Histidine scanning the later design
-batches raised that to 29 and the hedging became unnecessary.
-
-Selectivity is bucketed at 0.5 log10 before ordering, so that designs within
-roughly one PROPKA site-error of each other are ranked by the next criterion
-rather than by a difference the predictor cannot resolve.
-
 ## Novelty screen
 
 Foldseek (PDB 05.2024) was run on the monomer structures from rescore.py against
@@ -178,12 +179,40 @@ and other designed proteins rather than human ones. Excluding cysteine also
 rules out the cysteine-rich-domain fold both natural receptors use, so the
 architecture proven for this site was not searched.
 
+## Scoring and ranking
+
+Designs were refolded with full-sidechain features at `recycling_steps=3` and
+scored on four axes: pH selectivity (PROPKA on the predicted complex and the
+predicted free binder, combined through the linkage relation), mouse
+cross-reactivity (refolded against mouse TNF, P06804 mature sequence), affinity
+(ipTM and both ipSAE directions), and monomer/complex Cα RMSD.
+
+Negative controls: adalimumab and infliximab bind this groove and neither is
+pH-dependent. Scored through the same pipeline they give −0.312 and +0.385
+log10, against a target of approximately 2.0.
+
+All 20 designs clear selectivity 1.7, mouse ipTM 0.80 and ipTM 0.75
+simultaneously. Submitted ranges are selectivity 1.74–3.22 (median 2.25), mouse
+ipTM 0.811–0.964 (median 0.908) and ipTM 0.765–0.910 (median 0.864); 18 designs
+in the pool also clear the stricter selectivity 2.0. Each is the sole
+representative of its design lineage.
+
+Earlier revisions of this submission were hedged across the three criteria,
+filling 7 of 20 slots with designs strong on one and weak on another, because
+only 15 pool designs then cleared all three. Histidine scanning the later design
+batches raised that to 29 and the hedging became unnecessary.
+
+Selectivity is bucketed at 0.5 log10 before ordering, so that designs within
+roughly one PROPKA site-error of each other are ranked by the next criterion
+rather than by a difference the predictor cannot resolve.
+
 ## Limitations
 
-Monomer pLDDT is approximately 0.5 across the submitted set, so these binders
-are not predicted to fold confidently in isolation. ESMFold2, single-sequence by
-construction, reproduces the gap at median 0.46 against 0.83 for GB1 and 0.77
-for Top7, so it is not an artefact of co-folding. Whether it is an expression
+Monomer pLDDT has median 0.53 across the submitted set (range 0.43–0.65), so
+these binders are not predicted to fold confidently in isolation. ESMFold2,
+single-sequence by construction, reproduces the gap on the same twenty at median
+0.46 (range 0.36–0.53) against 0.83 for GB1 and 0.77 for Top7, none of the
+twenty reaching either control, so it is not an artefact of co-folding. Whether it is an expression
 liability is unresolved: nothing here links monomer confidence to expression
 outcome, and the Nipah work this recipe follows reports a 90% hit rate without
 reporting the quantity. A monomer-confidence branch in the design loss raised it
