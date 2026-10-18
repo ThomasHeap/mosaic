@@ -231,3 +231,36 @@ def activation_core(cif: Path | None = None, recompute: bool = False) -> list[in
     SX = np.array([x for _, x in seg])
     D = np.linalg.norm(RX[:, None] - SX[None, :], axis=-1)
     return sorted({ra[i][0] for i in range(len(ra)) if (D[i] < CONTACT_CUTOFF).any()})
+
+
+def bundle_axis(cif: Path | None = None):
+    """Centroid and unit axis of the transmembrane bundle, oriented so that
+    larger projections mean deeper into the bundle.
+
+    GLP-1's residues lie on a monotone gradient along this axis: His7 deepest at
+    -8.4 A, falling to -29.3 A at Gly22 up in the extracellular domain, with the
+    activating segment His7-Thr11 spanning -8.4 to -13.8. Insertion depth is
+    therefore a scalar measure of threading, where contact count also rewards a
+    peptide lying across the groove without entering it.
+    """
+    R, _ = _receptor_and_peptide(cif)
+    ca = {}
+    for r in R:
+        a = r.find_atom("CA", "*")
+        if a:
+            ca[r.seqid.num] = np.array([a.pos.x, a.pos.y, a.pos.z])
+    tm = np.array([v for k, v in ca.items() if k > ECD_MAX])
+    cen = tm.mean(0)
+    axis = np.linalg.svd(tm - cen)[2][0]
+    axis = axis / np.linalg.norm(axis)
+    ecd = np.array([v for k, v in ca.items() if k <= ECD_MAX]).mean(0)
+    if (ecd - cen) @ axis > 0:
+        axis = -axis
+    return cen, axis
+
+
+# Depth reached by GLP-1 His7, the deepest point of the activating segment, and
+# the shallow end of that segment at Thr11. A binder reaching past about -14 A
+# has entered the activation pocket rather than resting in the groove.
+GLP1_HIS7_DEPTH = -8.4
+ACTIVATION_DEPTH_THRESHOLD = -14.0

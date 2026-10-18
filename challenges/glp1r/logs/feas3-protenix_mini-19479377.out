@@ -1,18 +1,0 @@
-cpu-bind=MASK - bp1-gpu039, task  0  0 [1704377]: mask 0xff00000000000000ff00000000000000 set
-receptor 384 aa, binder 40 aa, total 424
-epitope 52 residues, lipid belt 65
-2026-10-17 12:17:22,297 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/jax/_src/xla_bridge.py:837] INFO jax._src.xla_bridge: Unable to initialize backend 'tpu': INTERNAL: Failed to open libtpu.so: libtpu.so: cannot open shared object file: No such file or directory
-model protenix_mini
-2026-10-17 12:17:26,334 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/web_service/colab_request_utils.py:195] ERROR protenix.web_service.colab_request_utils: Msa server is running.
-  0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]SUBMIT:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE:   0%|          | 0/100 [elapsed: 00:00 estimate remaining: ?]COMPLETE: 100%|██████████| 100/100 [elapsed: 00:00 estimate remaining: 00:00]Files downloaded and extracted successfully.
-COMPLETE: 100%|██████████| 100/100 [elapsed: 00:02 estimate remaining: 00:00]
-2026-10-17 12:17:39,481 [/user/work/cp20141/repos/mosaic/.venv/lib/python3.12/site-packages/protenix/data/constraint_featurizer.py:392] INFO protenix.data.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
-featurisation 15.8s
-prediction 11.9s  (recycling=1, sampling=25)
-mean pLDDT 0.774
-  CA RMSD all receptor             5.70 A  (n=384)
-  CA RMSD ECD                      4.03 A  (n=111)
-  CA RMSD TMD                      2.35 A  (n=273)
-  CA RMSD orthosteric epitope      3.85 A  (n=52)
-
-verdict inputs: time above vs TNF's ~2000 s per design; epitope RMSD is the number that matters, since that is the surface being designed into.

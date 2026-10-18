@@ -1,0 +1,5 @@
+{"name": "GLP1_7_37", "sequence": "HAEGTFTSDVSSYLEGQAAKEFIAWLVKGRG", "kind": "agonist"}
+{"name": "GLP1_9_37", "sequence": "EGTFTSDVSSYLEGQAAKEFIAWLVKGRG", "kind": "antagonist_pair_of_GLP1"}
+{"name": "exendin4", "sequence": "HGEGTFTSDLSKQMEEEAVRLFIEWLKNGGPSSGAPPPS", "kind": "agonist"}
+{"name": "exendin_9_39", "sequence": "DLSKQMEEEAVRLFIEWLKNGGPSSGAPPPS", "kind": "antagonist_pair_of_exendin"}
+{"name": "scrambled", "sequence": "GTSEAFKVLSYTGQEAWSDLIFTGAVEKRH", "kind": "negative"}

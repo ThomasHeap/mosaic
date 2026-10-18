@@ -158,6 +158,69 @@ that. It is geometric -- the binder has to reach TM2/TM3, ECL2/TM5 and TM7 -- so
 there is no cheap second stage to fall back on and it has to be designed in.
 Expect the in-loop objective to carry the whole burden here.
 
+## Activation: what has been tried and what is left
+
+Two approaches have been measured and neither works as a selection signal.
+
+The active-minus-inactive binding differential fails on known ligands. Over
+GLP-1 7-37, exendin-4, GLP-1 9-37, a scrambled peptide and poly-alanine the
+delta runs -0.005 to +0.030 for the agonists and -0.131 to +0.058 for the
+negatives, with the scrambled peptide scoring highest of all. 5vew is
+transmembrane-only so every ligand binds both constructs badly, and agonism is
+not a binding preference between conformations anyway.
+
+Activation-core contact count discriminates only among designs that bind. A
+scrambled peptide reaches 10 to 18 of the 18 core residues across five seeds, so
+on its own the count is noise; the scramble is rejected by ipTM, 0.42 against
+0.85 to 0.90 for the real ligands.
+
+Scoring model settled in passing: Boltz-2 cannot score this target. It ranks the
+scrambled peptide at ipTM 0.954, above GLP-1 at 0.934, while ProtenixBase gives
+0.422 against 0.869. Affinity is therefore scored with ProtenixBase, which means
+the scoring model is also the design model -- not ideal, but a non-discriminating
+independent scorer is worse than none.
+
+Four ideas remain, in the order worth trying:
+
+1. **Agonist/antagonist calibration pairs: done.** Pairs that both bind and
+   differ only in activation, five seeds each, ProtenixBase. Core contacts
+   separate both with no overlap between agonist and antagonist ranges:
+
+     GLP-1 7-37      17-18 of 18     GLP-1 9-37      11-12
+     exendin-4       15-18           exendin(9-39)    0-6
+
+   ipTM barely moves within a pair (0.87 against 0.85, 0.90 against 0.88), as it
+   should when both members bind. Limit: both antagonists are the agonist with
+   its N-terminal residues removed, and the core is defined as the receptor
+   residues contacted by GLP-1 His7-Thr11, so a truncated peptide contacts fewer
+   of them by construction. The result shows the metric tracks the activating
+   segment. It does not show that a de novo binder reaching those residues with
+   different chemistry would activate.
+
+2. **Insertion depth: tested, dropped.** Along the transmembrane axis GLP-1
+   reaches -6.4 A, matching the crystal's -6.3. It separates the exendin pair
+   (-5.8 against -14.2) but not the GLP-1 pair (-5.9 against -6.6), and
+   exendin(9-39) varies by 6 A between seeds. An earlier run appeared to separate
+   both pairs, but it measured from the template's origin while predictions come
+   back about 100 A away; the axis has to be recomputed from each prediction.
+
+3. **Gs ternary-complex compatibility.** 6x18 contains the Gs heterotrimer.
+   Agonism is G-protein coupling, so co-folding binder, receptor and Gs and
+   asking whether the Gs interface survives measures the functional output
+   rather than a structural correlate. Unknown whether the model is sensitive
+   enough to report a real difference.
+
+4. **TM6 position.** The outward swing of TM6's intracellular half is what class
+   B activation physically is. Unusable as set up: templating 6x18 puts TM6 in
+   the active position before the binder is considered, so the prediction is
+   biased toward the wanted answer. Templating the inactive state would test
+   induced fit, which structure predictors do not really do. Parked unless 1-3
+   fail.
+
+Selection rule that follows: gate on ProtenixBase ipTM first, then rank by
+activation-core contacts. The core count is a screen for engaging the activating
+pocket, not a prediction of activation, and the methods should say so.
+
 ## De novo compliance: settled
 
 Adaptyv's novelty scale scores only global sequence identity (MMseqs2) and

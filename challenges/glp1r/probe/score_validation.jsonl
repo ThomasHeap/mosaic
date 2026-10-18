@@ -1,0 +1,5 @@
+{"name": "GLP1_7_37", "sequence": "HAEGTFTSDVSSYLEGQAAKEFIAWLVKGRG", "kind": "agonist"}
+{"name": "exendin4", "sequence": "HGEGTFTSDLSKQMEEEAVRLFIEWLKNGGPSSGAPPPS", "kind": "agonist"}
+{"name": "GLP1_9_37", "sequence": "EGTFTSDVSSYLEGQAAKEFIAWLVKGRG", "kind": "binder_not_agonist"}
+{"name": "scrambled", "sequence": "GTSEAFKVLSYTGQEAWSDLIFTGAVEKRH", "kind": "negative"}
+{"name": "glp1r_L40_s1_0", "sequence": "QLQAQAAKDMKKAKKAEQFFRDDDRDDDKADDFHDAARDW", "kind": "smoke_design"}
