@@ -16,8 +16,15 @@ residues present in at least two of the three were kept. TNF chains in these
 entries are numbered on the mature 157-residue sequence, so no alignment was
 required.
 
-Core epitope (construct numbering): 20, 21, 23, 67, 71, 73, 75, 77, 97, 110,
-111, 113, 115, 137, 140, 141, 143, 144, 145, 146.
+Core epitope, residues present in at least two of the three complexes
+(construct numbering): 20, 21, 23, 67, 71, 73, 75, 77, 97, 110, 111, 113, 115,
+137, 140, 141, 143, 144, 145, 146.
+
+Design targeted a wider groove footprint taken from 3ALQ and split by protomer,
+28 residues in total: 20, 21, 23, 31, 32, 33, 63, 67, 113, 115, 143, 144, 145,
+146, 149 on one protomer and 71, 72, 73, 75, 77, 85, 86, 87, 88, 89, 91, 92, 97
+on its neighbour. Excluding the four mouse-divergent residues inside it leaves
+the 24 positions the contact term was restricted to.
 
 The receptor groove spans two protomers. In 3ALQ, TNFR2 chain T contacts 15
 residues on one protomer and 13 on its neighbour. All designs were therefore
@@ -175,13 +182,13 @@ architecture proven for this site was not searched.
 
 Monomer pLDDT is approximately 0.5 across the submitted set, so these binders
 are not predicted to fold confidently in isolation. ESMFold2, single-sequence by
-construction, reproduces the gap at median 0.46 against 0.73 and 0.83 for GB1
-and Top7, so it is not an artefact of co-folding. Whether it is an expression
+construction, reproduces the gap at median 0.46 against 0.83 for GB1 and 0.77
+for Top7, so it is not an artefact of co-folding. Whether it is an expression
 liability is unresolved: nothing here links monomer confidence to expression
 outcome, and the Nipah work this recipe follows reports a 90% hit rate without
 reporting the quantity. A monomer-confidence branch in the design loss raised it
 by 0.08 pLDDT at a cost of 0.25 ipTM and was not used; monomer pLDDT and ipTM
-are near-independent across 515 designs (r = +0.095).
+are near-independent across the 1,228 scored designs (r = +0.043).
 
 The differentiable pKa model is weak. Calibrated against PROPKA on 316 protein
 complexes (1,272 histidines, 25% held out by complex), it improves on a
