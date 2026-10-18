@@ -51,6 +51,11 @@ def main():
     # fits the deadline. It is also an independent second opinion for ranking:
     # neither model represents a membrane, so they share that blind spot but not
     # their individual artefacts.
+    ap.add_argument("--no-msa", action="store_true",
+                    help="template only, no MSA. Protenix fetches MSAs from a "
+                         "remote service (73 min queued on a novel sequence) "
+                         "and there is no local sequence database, so if the "
+                         "template alone suffices the dependency goes away.")
     ap.add_argument("--model", default="boltz2",
                     choices=["boltz2", "protenix_mini", "protenix_base"])
     args = ap.parse_args()
@@ -65,7 +70,8 @@ def main():
     model = {"boltz2": Boltz2, "protenix_mini": ProtenixMini,
              "protenix_base": ProtenixBase}[args.model]()
     print(f"model {args.model}", flush=True)
-    chains = [TargetChain(seq, use_msa=True, template_chain=tmpl)]
+    chains = [TargetChain(seq, use_msa=not args.no_msa, template_chain=tmpl)]
+    print(f"msa: {'off (template only)' if args.no_msa else 'on'}", flush=True)
     # A generic helical sequence stands in for a design; this measures the
     # target's cost, not any particular binder's quality.
     binder = "EELKKLEEELKKLEEELKKLEEELKKLEEELKKLEEELKK"[: args.binder_length]
