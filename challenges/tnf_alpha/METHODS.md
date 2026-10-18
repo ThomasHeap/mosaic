@@ -70,8 +70,7 @@ Asp and Glu raise. Several submitted designs are consequently acidic (net charge
 
 This was checked against measured antibodies before designing. Infliximab's
 CDR-L3 His92 shows a −2.35 pKa shift on binding but contributes only +0.33
-log10, because its free-state pKa is 6.09. A large shift on a low-pKa histidine
-buys almost nothing.
+log10, because its free-state pKa is 6.09.
 
 ## Design
 

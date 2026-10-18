@@ -51,6 +51,11 @@ def main():
           f"{col('iptm')[0]:.3f}–{col('iptm')[-1]:.3f}")
     check("distinct lineages", 20,
           len({r["name"].split("_his")[0] for r in sub}))
+    charge = [sum(r["sequence"].count(c) for c in "KR")
+              - sum(r["sequence"].count(c) for c in "DE") for r in sub]
+    check("net charge", "\u221212 to +1, median \u22123",
+          f"{min(charge)} to {max(charge):+d}, median {st.median(charge):+.0f}"
+          .replace("-", "\u2212").replace("\u2212", "\u2212", 1))
 
     from target import GROOVE_PROTOMER_1, GROOVE_PROTOMER_2, MOUSE_DIVERGENT
     g = set(GROOVE_PROTOMER_1) | set(GROOVE_PROTOMER_2)
@@ -80,6 +85,24 @@ def main():
         best = max(sel(b / 100, free) for b in range(200, int(free * 100)))
         check(f"pH table, pKa_free {free}", f"{per}/{need}",
               f"{best:.2f}/{math.ceil(2.0/best)}")
+
+    # Upload requirements: name and sequence columns, optional molecule_class
+    # from a fixed set, scFv/Fab written {VH}:{VL}.
+    ALLOWED = {"single_chain", "nanobody", "scfv", "fab_kappa", "fab_lambda"}
+    cols = list(sub[0].keys())
+    mc = {r["molecule_class"] for r in sub}
+    check("format: columns", "name,sequence,molecule_class", ",".join(cols))
+    check("format: molecule_class allowed", True, mc <= ALLOWED)
+    check("format: unique names", 20, len({r["name"] for r in sub}))
+    check("format: unique sequences", 20, len({r["sequence"] for r in sub}))
+    check("format: standard residues only", 0,
+          sum(1 for r in sub if set(r["sequence"]) - set("ACDEFGHIKLMNPQRSTVWY")))
+    check("format: no stray whitespace", 0,
+          sum(1 for r in sub if r["sequence"] != r["sequence"].strip()))
+    # A colon would mean a VH:VL pair, which single_chain designs must not have.
+    check("format: no VH:VL colon", 0, sum(1 for r in sub if ":" in r["sequence"]))
+    check("format: length within 10-250", True,
+          all(10 <= len(r["sequence"]) <= 250 for r in sub))
 
     print("\n  externally verified (needs PROPKA, not re-run here):")
     print("    adalimumab -0.312, infliximab +0.385, infliximab L92 -2.35/+0.33/6.09")
