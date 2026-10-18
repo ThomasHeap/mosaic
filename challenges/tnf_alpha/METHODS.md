@@ -1,7 +1,7 @@
 # Methods — TNF-α Challenge 02 (Track 3)
 
-20 de novo single-chain binders, 55–90 aa, no cysteines, maximum pairwise
-sequence identity 22%. Per-design metrics are in `submission_metrics.csv`.
+20 de novo single-chain binders, 55–75 aa, no cysteines, maximum pairwise
+sequence identity 18%. Per-design metrics are in `submission_metrics.csv`.
 
 Tools: `mosaic` (Escalante Bio) for differentiable design, Boltz-2 for
 co-folding and scoring, soluble ProteinMPNN for inverse folding, PROPKA 3.5.1
@@ -18,8 +18,6 @@ required.
 
 Core epitope (construct numbering): 20, 21, 23, 67, 71, 73, 75, 77, 97, 110,
 111, 113, 115, 137, 140, 141, 143, 144, 145, 146.
-
-Three results from this analysis determined the design setup.
 
 The receptor groove spans two protomers. In 3ALQ, TNFR2 chain T contacts 15
 residues on one protomer and 13 on its neighbour. All designs were therefore
@@ -57,11 +55,11 @@ Per-histidine selectivity across a 7.4 → 6.0 window is bounded:
 | 7.5 | 1.16 | 2 |
 
 "No detectable binding at pH 6.0" is therefore not reachable with one or two
-ordinary histidines. Submitted designs carry 4–11 histidines.
+ordinary histidines. Submitted designs carry 5–11 histidines.
 
 Selectivity increases monotonically with the free-state pKa, which neighbouring
 Asp and Glu raise. Several submitted designs are consequently acidic (net charge
-−12 to +3, median −3).
+−12 to +1, median −3).
 
 This was checked against measured antibodies before designing. Infliximab's
 CDR-L3 His92 shows a −2.35 pKa shift on binding but contributes only +0.33
@@ -85,9 +83,8 @@ A signed coordinate-space epitope field assigns per-residue weights that attract
 the binder to conserved epitope residues and repel it from the four
 mouse-divergent residues inside the groove (P20, S71, H73, I97). Distances use a
 virtual Cβ built from backbone N, CA and C, since design-time features in
-`mosaic` carry no sidechains. A distogram contact term cannot distinguish
-residues to contact from residues to avoid; this term can, which is how
-criterion 2 was optimised rather than measured afterwards.
+`mosaic` carry no sidechains. A distogram contact term cannot distinguish residues to
+contact from residues to avoid.
 
 A differentiable proton-linkage objective makes the scored quantity itself the
 target. An electrostatics-only pKa model — Coulomb over the environment's
@@ -98,8 +95,8 @@ alone gives pKa_free, adding the target gives pKa_bound. The result is passed
 through the linkage relation above.
 
 Four pools were run to separate the criteria: affinity only, two in-loop
-histidine budgets (3 and 5), and the differentiable linkage objective. 455
-designs were generated in total.
+histidine budgets (3 and 5), and the differentiable linkage objective. 1,228
+unique designs were generated and scored, 735 of them histidine-scan variants.
 
 ## Interface histidine scanning
 
@@ -114,11 +111,11 @@ substitutions scored through the linkage relation, and combinations of up to fou
 positions evaluated. The scan is backbone-only, so a substitution changes the
 charge vector and not the geometry; no refolding is needed to score it.
 
-Variants were then refolded and rescored, which is required: the scan does not
-model structural tolerance, and the median ipTM cost of a four-histidine variant
-was −0.117. Measured outcome across 223 variants: median selectivity gain +0.510
-log10, maximum +2.744, 61 of 85 in the first batch improving. Sixteen of the 20
-submitted designs came from this route.
+Variants were refolded and rescored, since the scan does not model structural
+tolerance. Across 735 variants with a matched parent the median selectivity gain
+is +0.454 log10 and the maximum +5.262, 66% improve on their parent, and the
+median ipTM cost is −0.054. Nineteen of the 20 submitted designs came from this
+route.
 
 ## Scoring and ranking
 
@@ -132,14 +129,16 @@ Negative controls: adalimumab and infliximab bind this groove and neither is
 pH-dependent. Scored through the same pipeline they give −0.312 and +0.385
 log10, against a target of approximately 2.0.
 
-The submission is a portfolio rather than a strict ranking. Eight designs clear
-selectivity 2.0, mouse ipTM 0.80 and ipTM 0.75 simultaneously, so 20 slots
-cannot be uniformly strong on all three criteria. Rows 1–13 meet all three at
-reduced thresholds (selectivity ≥ 1.7, mouse ipTM ≥ 0.80, ipTM ≥ 0.75). Rows
-14–17 favour criterion 1 (selectivity 2.30–2.83, lower mouse ipTM). Rows 18–20
-favour criterion 2 (mouse ipTM ≥ 0.96, selectivity 1.20–1.38). All 20 clear ipTM
-0.70, since selectivity is an affinity ratio and is not meaningful for a design
-that does not bind at either pH.
+All 20 designs clear selectivity 1.7, mouse ipTM 0.80 and ipTM 0.75
+simultaneously. Submitted ranges are selectivity 1.74–3.22 (median 2.25), mouse
+ipTM 0.811–0.964 (median 0.908) and ipTM 0.765–0.910 (median 0.864); 18 designs
+in the pool also clear the stricter selectivity 2.0. Each is the sole
+representative of its design lineage.
+
+Earlier revisions of this submission were hedged across the three criteria,
+filling 7 of 20 slots with designs strong on one and weak on another, because
+only 15 pool designs then cleared all three. Histidine scanning the later design
+batches raised that to 29 and the hedging became unnecessary.
 
 Selectivity is bucketed at 0.5 log10 before ordering, because PROPKA's error on
 the pKa shift is 0.46 log10 per site and finer distinctions are not measurable.
@@ -149,13 +148,12 @@ the pKa shift is 0.46 log10 per site and finer distinctions are not measurable.
 Foldseek (PDB 05.2024) was run on the monomer structures from rescore.py against
 Adaptyv's published thresholds, where level 4 de novo requires sequence identity
 <= 30% and below-moderate structural similarity, moderate being > 70% coverage at
-TM-score >= 0.5. Tiers feed rank.py as a tie-break beneath the three scored
-criteria, which is where they bind: mouse ipTM is bucketed at 0.1 first, since a
-0.03 difference in a predicted metric should not decide a slot.
+TM-score >= 0.5. Tiers enter ranking as a tie-break beneath the three scored
+criteria, with mouse ipTM bucketed at 0.1, PROPKA-style, so that differences
+below predictor error do not decide a slot.
 
-15 of the twenty are below moderate and 5 are moderate. None reach the
-high tier. The 5 are kept rather than replaced; all twenty remain distinct
-lineages and clear all three scored criteria:
+15 of the twenty are below moderate and 5 are moderate; none reach the high
+tier. The 5 are kept:
 
   tnf_ph_L55_s505_17_his4_29_40_30_23        TM 0.656  qcov 0.89  ipTM 0.902
   tnf_ph_hot_L75_s406_8_his4_66_67_70_73     TM 0.751  qcov 0.85  ipTM 0.872
@@ -175,18 +173,15 @@ architecture proven for this site was not searched.
 
 ## Limitations
 
-Monomer pLDDT is approximately 0.5 across the submitted set, so these binders are
-not predicted to fold confidently in isolation. ESMFold2, which is single-sequence
-by construction, reproduces the gap (median 0.46, against 0.73 and 0.83 for GB1
-and Top7), so it is not an artefact of co-folding. Whether it reflects an
-expression liability remains unresolved: nothing here links monomer confidence to
-expression outcome, and the Nipah work this recipe follows reports a 90% hit rate
-without reporting the quantity at all. Raising it was tried and rejected on cost:
-a monomer-confidence branch in the design loss cost about 0.25 ipTM for 0.08
-pLDDT, and selecting on it instead is nearly free, since the two are
-near-independent across 515 designs (r = +0.095), but changed one design of
-twenty, the portfolio already holding the best-folded designs that clear the
-three scored criteria.
+Monomer pLDDT is approximately 0.5 across the submitted set, so these binders
+are not predicted to fold confidently in isolation. ESMFold2, single-sequence by
+construction, reproduces the gap at median 0.46 against 0.73 and 0.83 for GB1
+and Top7, so it is not an artefact of co-folding. Whether it is an expression
+liability is unresolved: nothing here links monomer confidence to expression
+outcome, and the Nipah work this recipe follows reports a 90% hit rate without
+reporting the quantity. A monomer-confidence branch in the design loss raised it
+by 0.08 pLDDT at a cost of 0.25 ipTM and was not used; monomer pLDDT and ipTM
+are near-independent across 515 designs (r = +0.095).
 
 The differentiable pKa model is weak. Calibrated against PROPKA on 316 protein
 complexes (1,272 histidines, 25% held out by complex), it improves on a
