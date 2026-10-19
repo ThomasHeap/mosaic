@@ -91,8 +91,12 @@ def build_objective(model, binder_length, mpnn, *, activation_weight=2.0,
     # residues, which is the part that has to thread, and targets only the
     # deepest subset of the core. This mirrors how GLP-1 works -- its C-terminal
     # half holds the ECD while His7-Glu9 reaches the bundle.
+    # paratope_idx must be a jnp array, not a list: the term indexes
+    # binder_target_max_p[paratope_idx] directly, and JAX rejects a bare list
+    # there. epitope_idx gets away with a list because it is used as
+    # arr[:, idx], where the index is already a tuple.
     nterm_term = sp.BinderTargetContact(
-        epitope_idx=deep, paratope_idx=list(range(nterm_len)),
+        epitope_idx=deep, paratope_idx=jnp.arange(nterm_len),
         contact_distance=8.0)
 
     loss = (
