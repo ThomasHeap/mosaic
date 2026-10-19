@@ -196,6 +196,12 @@ def chain_sequence(chain: gemmi.Chain) -> str:
     return gemmi.one_letter_code([r.name for r in chain])
 
 
+# Receptor residues within 4.5 A of GLP-1 His7-Glu9, the three deepest residues
+# of the activating segment. A design reaching these has threaded into the
+# bundle rather than lying across the groove. Subset of ACTIVATION_CORE.
+DEEP_CORE = [152, 190, 194, 233, 234, 237, 241, 306, 309, 310, 313,
+             384, 387, 388, 391]
+
 # Receptor residues within 4.5 A of GLP-1 His7-Thr11, the segment whose removal
 # costs 1000-10000x cAMP potency against 100-300x affinity. Spread across TM1,
 # TM2, TM3, TM5, TM6 and TM7, i.e. the helices whose rearrangement is activation.

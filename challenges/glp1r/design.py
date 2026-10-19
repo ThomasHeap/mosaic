@@ -56,9 +56,9 @@ from mosaic.models.protenix import ProtenixBase
 from mosaic.optimizers import simplex_APGM
 from mosaic.proteinmpnn.mpnn import load_mpnn_sol
 from mosaic.structure_prediction import TargetChain
-from target import (ACTIVATION_CORE, activation_core, glp1r_template_chain,
-                    lipid_facing_belt, orthosteric_epitope, receptor_sequence,
-                    to_target_index)
+from target import (ACTIVATION_CORE, DEEP_CORE, activation_core,
+                    glp1r_template_chain, lipid_facing_belt,
+                    orthosteric_epitope, receptor_sequence, to_target_index)
 
 CONFIG = "glp1r-agonist-v1"
 
@@ -73,7 +73,8 @@ MAX_GRAD_NORM = 1.0
 
 
 def build_objective(model, binder_length, mpnn, *, activation_weight=2.0,
-                    belt_weight=0.5, num_samples=2):
+                    belt_weight=0.5, nterm_weight=0.0, nterm_len=5,
+                    num_samples=2):
     seq = receptor_sequence()
     target = [TargetChain(seq, use_msa=False, template_chain=glp1r_template_chain())]
     features, _ = model.binder_features(binder_length, target)
@@ -81,6 +82,18 @@ def build_objective(model, binder_length, mpnn, *, activation_weight=2.0,
     epitope = to_target_index(orthosteric_epitope())
     core = to_target_index(activation_core())
     belt = to_target_index(lipid_facing_belt())
+
+    deep = to_target_index(DEEP_CORE)
+    # The activation term above is satisfied by any binder position, so a design
+    # can lie across the pocket and collect contacts without entering it: the
+    # first sweep reached 11-14 of 18 core residues while binding worse than
+    # GLP-1. paratope_idx restricts this term to the binder's N-terminal
+    # residues, which is the part that has to thread, and targets only the
+    # deepest subset of the core. This mirrors how GLP-1 works -- its C-terminal
+    # half holds the ECD while His7-Glu9 reaches the bundle.
+    nterm_term = sp.BinderTargetContact(
+        epitope_idx=deep, paratope_idx=list(range(nterm_len)),
+        contact_distance=8.0)
 
     loss = (
         # The whole epitope, loosely: this is the surface to sit on.
@@ -97,6 +110,7 @@ def build_objective(model, binder_length, mpnn, *, activation_weight=2.0,
         - belt_weight * sp.BinderTargetContact(
             epitope_idx=belt, contact_distance=8.0)
         + 1.0 * sp.WithinBinderContact()
+        + (nterm_weight * nterm_term if nterm_weight else 0.0 * nterm_term)
         + 10.0 * InverseFoldingSequenceRecovery(mpnn, temp=jnp.array(0.001))
         + 0.05 * sp.BinderTargetPAE()
         + 0.05 * sp.TargetBinderPAE()
@@ -138,6 +152,11 @@ def main():
     ap.add_argument("--binder-length", type=int, default=40)
     ap.add_argument("--activation-weight", type=float, default=2.0)
     ap.add_argument("--belt-weight", type=float, default=0.5)
+    ap.add_argument("--nterm-weight", type=float, default=0.0,
+                    help="weight on an N-terminal-only term toward the deepest "
+                         "core residues; 0 disables")
+    ap.add_argument("--nterm-len", type=int, default=5,
+                    help="how many N-terminal binder residues that term covers")
     ap.add_argument("--num-samples", type=int, default=2)
     ap.add_argument("--stage-scale", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=0)
@@ -145,7 +164,8 @@ def main():
     args = ap.parse_args()
 
     print(f"config={CONFIG} length={args.binder_length} "
-          f"activation_weight={args.activation_weight} belt_weight={args.belt_weight}",
+          f"activation_weight={args.activation_weight} belt_weight={args.belt_weight} "
+          f"nterm_weight={args.nterm_weight} nterm_len={args.nterm_len}",
           flush=True)
     print(f"epitope {len(orthosteric_epitope())} residues, "
           f"activation core {len(ACTIVATION_CORE)}, "
@@ -156,7 +176,8 @@ def main():
     objective = build_objective(
         model, args.binder_length, mpnn,
         activation_weight=args.activation_weight,
-        belt_weight=args.belt_weight, num_samples=args.num_samples,
+        belt_weight=args.belt_weight, nterm_weight=args.nterm_weight,
+        nterm_len=args.nterm_len, num_samples=args.num_samples,
     )
 
     args.out.mkdir(parents=True, exist_ok=True)

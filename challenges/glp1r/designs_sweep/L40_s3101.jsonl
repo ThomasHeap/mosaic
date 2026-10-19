@@ -1,0 +1,4 @@
+{"name": "glp1r_L40_s3101_0", "sequence": "RDEEDLLDDWTFAGHFHWKAARFFSWWADAQSRADSAKSS", "molecule_class": "protein", "config": "glp1r-agonist-v1", "activation_weight": 2.0, "belt_weight": 0.5, "seconds": 1543.0945193767548}
+{"name": "glp1r_L40_s3101_1", "sequence": "SDEEEEGKTRHFIWFWLQGRGFPPKVDGDLDRPWGGAPVS", "molecule_class": "protein", "config": "glp1r-agonist-v1", "activation_weight": 2.0, "belt_weight": 0.5, "seconds": 1489.2792177200317}
+{"name": "glp1r_L40_s3101_2", "sequence": "DSIWWLDFRAAGQGFGDNPEVFTVFERAALSDIIEWVKSK", "molecule_class": "protein", "config": "glp1r-agonist-v1", "activation_weight": 2.0, "belt_weight": 0.5, "seconds": 1490.5268456935883}
+{"name": "glp1r_L40_s3101_3", "sequence": "SLDDFADALDSDYYGPTPDPTRALELLYSSPAFREWLRRM", "molecule_class": "protein", "config": "glp1r-agonist-v1", "activation_weight": 2.0, "belt_weight": 0.5, "seconds": 1489.0167589187622}

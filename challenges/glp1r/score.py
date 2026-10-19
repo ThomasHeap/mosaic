@@ -110,7 +110,7 @@ def main():
                          "seed cannot say whether a difference between two "
                          "designs is larger than the model's own run-to-run noise")
     ap.add_argument("--model", default="boltz2",
-                    choices=["boltz2", "protenix_base"])
+                    choices=["boltz2", "protenix_base", "af2"])
     args = ap.parse_args()
 
     seq = receptor_sequence()
@@ -119,11 +119,14 @@ def main():
     core, belt, ep = ACTIVATION_CORE, lipid_facing_belt(), orthosteric_epitope()
     if args.model == "boltz2":
         from mosaic.models.boltz2 import Boltz2 as M
+    elif args.model == "af2":
+        from mosaic.models.af2 import AlphaFold2 as M
     else:
         from mosaic.models.protenix import ProtenixBase as M
     model = M()
     # Boltz-2 needs an MSA here (epitope RMSD 3.66 vs 7.80 A without);
-    # ProtenixBase measured better without one.
+    # ProtenixBase measured better without one. AlphaFold2 in mosaic cannot take
+    # an MSA at all, so it runs template-only.
     use_msa = args.model == "boltz2"
     key = jax.random.PRNGKey(0)
 
@@ -139,9 +142,15 @@ def main():
         feats, writer = model.target_only_features(
             [TargetChain(b, use_msa=False),
              TargetChain(seq, use_msa=use_msa, template_chain=tmpl)])
+        extra = {}
+        if args.model == "af2":
+            # Fixed parameter set per seed, so five seeds cover the five multimer
+            # models once each. Left to the key, predict() draws a model at random
+            # and five seeds can easily repeat one and miss another.
+            extra["model_idx"] = sd % 5
         pred = model.predict(features=feats, writer=writer,
                              recycling_steps=args.recycling_steps,
-                             sampling_steps=args.sampling_steps, key=k)
+                             sampling_steps=args.sampling_steps, key=k, **extra)
         # iPTM via the loss term with an explicit binder length: pred.iptm reads
         # 0 for target_only_features, where no chain is the designated binder.
         key, k2 = jax.random.split(key)

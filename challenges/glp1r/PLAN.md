@@ -217,8 +217,27 @@ Four ideas remain, in the order worth trying:
    induced fit, which structure predictors do not really do. Parked unless 1-3
    fail.
 
+Independent scoring: Boltz-2 confirms the core-contact metric, ProtenixBase
+gates binding. The earlier claim that Boltz-2 "cannot score this target" rested
+on one prediction per ligand, where the scrambled peptide happened to score ipTM
+0.954 against GLP-1's 0.934. Over five seeds the scramble is 0.84 +/- 0.18,
+range 0.53 to 0.96, so that single draw was the top of a wide range; Protenix
+gives 0.42 +/- 0.02 on the same peptide and remains the better binding gate.
+But Boltz-2's core-contact counts separate both agonist/antagonist pairs with no
+overlap -- GLP-1 17-18 against 11-13, exendin-4 15-18 against 1-5 -- reaching
+the same conclusion as Protenix independently. Since the core count is the
+number most at risk from scoring with the design model, that is the useful
+independence.
+
+AlphaFold2 multimer was tried and is not usable. Template-only, since mosaic's
+wrapper takes no MSA, results depend on which parameter set rather than on
+sampling: exendin-4 scores ipTM 0.70-0.73 with 15-16 core contacts under models
+1 and 5, and 0.12-0.21 with 0 contacts under models 2, 3 and 4. The scramble
+reaches 0.46 under model 1 and overlaps the agonists. OpenFold3 is untried and
+no longer needed.
+
 Selection rule that follows: gate on ProtenixBase ipTM first, then rank by
-activation-core contacts. The core count is a screen for engaging the activating
+activation-core contacts, confirmed on Boltz-2. The core count is a screen for engaging the activating
 pocket, not a prediction of activation, and the methods should say so.
 
 ## De novo compliance: settled
