@@ -1,0 +1,15 @@
+{"name": "GLP1_7_37", "kind": "agonist", "seed": 0, "gs_contacts": 27, "plddt": 0.8856510519981384}
+{"name": "GLP1_7_37", "kind": "agonist", "seed": 1, "gs_contacts": 29, "plddt": 0.8851621150970459}
+{"name": "GLP1_7_37", "kind": "agonist", "seed": 2, "gs_contacts": 29, "plddt": 0.884982168674469}
+{"name": "GLP1_9_37", "kind": "antagonist", "seed": 0, "gs_contacts": 30, "plddt": 0.8816507458686829}
+{"name": "GLP1_9_37", "kind": "antagonist", "seed": 1, "gs_contacts": 27, "plddt": 0.8814073204994202}
+{"name": "GLP1_9_37", "kind": "antagonist", "seed": 2, "gs_contacts": 28, "plddt": 0.8817737698554993}
+{"name": "exendin4", "kind": "agonist", "seed": 0, "gs_contacts": 29, "plddt": 0.8874897956848145}
+{"name": "exendin4", "kind": "agonist", "seed": 1, "gs_contacts": 28, "plddt": 0.885127604007721}
+{"name": "exendin4", "kind": "agonist", "seed": 2, "gs_contacts": 26, "plddt": 0.8862540125846863}
+{"name": "exendin_9_39", "kind": "antagonist", "seed": 0, "gs_contacts": 27, "plddt": 0.8660677075386047}
+{"name": "exendin_9_39", "kind": "antagonist", "seed": 1, "gs_contacts": 27, "plddt": 0.8643126487731934}
+{"name": "exendin_9_39", "kind": "antagonist", "seed": 2, "gs_contacts": 28, "plddt": 0.8641527891159058}
+{"name": "no_binder", "kind": "apo_control", "seed": 0, "gs_contacts": 26, "plddt": 0.8772479891777039}
+{"name": "no_binder", "kind": "apo_control", "seed": 1, "gs_contacts": 28, "plddt": 0.8756816387176514}
+{"name": "no_binder", "kind": "apo_control", "seed": 2, "gs_contacts": 28, "plddt": 0.8771504163742065}
