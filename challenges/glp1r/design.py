@@ -50,6 +50,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent))
 
 import mosaic.losses.structure_prediction as sp
+from mosaic.losses.esmc import ESMCPseudoPerplexity, load_esmc
 from mosaic.losses.protein_mpnn import InverseFoldingSequenceRecovery
 from mosaic.losses.transformations import NoCys
 from mosaic.models.protenix import ProtenixBase
@@ -74,7 +75,7 @@ MAX_GRAD_NORM = 1.0
 
 def build_objective(model, binder_length, mpnn, *, activation_weight=2.0,
                     belt_weight=0.5, nterm_weight=0.0, nterm_len=5,
-                    num_samples=2):
+                    esm_weight=0.0, esmc=None, num_samples=2):
     seq = receptor_sequence()
     target = [TargetChain(seq, use_msa=False, template_chain=glp1r_template_chain())]
     features, _ = model.binder_features(binder_length, target)
@@ -125,6 +126,16 @@ def build_objective(model, binder_length, mpnn, *, activation_weight=2.0,
     objective = model.build_multisample_loss(
         loss=loss, features=features, recycling_steps=1, num_samples=num_samples
     )
+
+    # Designs come out 42-50% charged against 23% for GLP-1 and exendin-4. A
+    # half-charged peptide threading a hydrophobic bundle is implausible whatever
+    # the structure model says, and no amount of scoring against that model will
+    # surface it -- charge showed no relation to predicted core contacts
+    # (r = -0.175). ESMC pseudo-perplexity scores how protein-like a sequence is
+    # independent of structure, which is the constraint the objective lacks.
+    # Added at the top level, where sequence-only terms compose.
+    if esm_weight and esmc is not None:
+        objective = objective + esm_weight * ESMCPseudoPerplexity(esm=esmc)
     # Cysteine is excluded: GLP-1 and exendin-4 both lack it, and a free
     # cysteine in a short secreted peptide invites disulfide scrambling. The
     # optimiser therefore runs in 19 dimensions and NoCys.sequence() reinserts
@@ -159,6 +170,9 @@ def main():
     ap.add_argument("--nterm-weight", type=float, default=0.0,
                     help="weight on an N-terminal-only term toward the deepest "
                          "core residues; 0 disables")
+    ap.add_argument("--esm-weight", type=float, default=0.0,
+                    help="weight on ESMC pseudo-perplexity, which penalises "
+                         "unnatural composition; 0 disables")
     ap.add_argument("--nterm-len", type=int, default=5,
                     help="how many N-terminal binder residues that term covers")
     ap.add_argument("--num-samples", type=int, default=2)
@@ -169,7 +183,8 @@ def main():
 
     print(f"config={CONFIG} length={args.binder_length} "
           f"activation_weight={args.activation_weight} belt_weight={args.belt_weight} "
-          f"nterm_weight={args.nterm_weight} nterm_len={args.nterm_len}",
+          f"nterm_weight={args.nterm_weight} nterm_len={args.nterm_len} "
+          f"esm_weight={args.esm_weight}",
           flush=True)
     print(f"epitope {len(orthosteric_epitope())} residues, "
           f"activation core {len(ACTIVATION_CORE)}, "
@@ -177,11 +192,13 @@ def main():
 
     model = ProtenixBase()
     mpnn = load_mpnn_sol(0.05)
+    esmc = load_esmc(model_name="esmc_300m") if args.esm_weight else None
     objective = build_objective(
         model, args.binder_length, mpnn,
         activation_weight=args.activation_weight,
         belt_weight=args.belt_weight, nterm_weight=args.nterm_weight,
-        nterm_len=args.nterm_len, num_samples=args.num_samples,
+        nterm_len=args.nterm_len, esm_weight=args.esm_weight, esmc=esmc,
+        num_samples=args.num_samples,
     )
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -205,7 +222,11 @@ def main():
                 "name": f"glp1r_L{args.binder_length}_s{args.seed}_{i}",
                 "sequence": seq, "molecule_class": "protein",
                 "config": CONFIG, "activation_weight": args.activation_weight,
-                "belt_weight": args.belt_weight, "seconds": elapsed,
+                "belt_weight": args.belt_weight,
+                "nterm_weight": args.nterm_weight, "nterm_len": args.nterm_len,
+                "esm_weight": args.esm_weight,
+                "binder_length": args.binder_length, "seed": args.seed,
+                "seconds": elapsed,
             }
             fh.write(json.dumps(rec) + "\n")
             fh.flush()

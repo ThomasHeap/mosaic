@@ -61,6 +61,40 @@ def contacts(st, binder_len, resnums, receptor_order):
     return nums & set(resnums)
 
 
+def segment_depths(st, receptor_order, nterm_len=5):
+    """Depth of the binder's N-terminal segment vs the rest, same axis.
+
+    Tests whether the N-terminal term works by the intended mechanism. It raised
+    activation-core contacts, but a design could satisfy it by swinging its whole
+    body into the pocket mouth rather than threading its N-terminus. If the
+    N-terminal residues are not deeper than the remainder, the gain is incidental.
+    """
+    chains = list(st[0])
+    if len(chains) < 2:
+        return None, None
+    binder, recept = chains[0], chains[1]
+    ca = {}
+    for i, r in enumerate(recept):
+        a = r.find_atom("CA", "*")
+        if a and i < len(receptor_order):
+            ca[receptor_order[i]] = np.array([a.pos.x, a.pos.y, a.pos.z])
+    tm = np.array([v for k, v in ca.items() if k > 145])
+    ecd = [v for k, v in ca.items() if k <= 145]
+    if len(tm) < 10 or not ecd:
+        return None, None
+    cen = tm.mean(0)
+    axis = np.linalg.svd(tm - cen)[2][0]
+    axis = axis / np.linalg.norm(axis)
+    if (np.array(ecd).mean(0) - cen) @ axis > 0:
+        axis = -axis
+    res = list(binder)
+    def deepest(sub):
+        pts = [np.array([a.pos.x, a.pos.y, a.pos.z])
+               for r in sub for a in r if a.element.name != "H"]
+        return float(max((q - cen) @ axis for q in pts)) if pts else None
+    return deepest(res[:nterm_len]), deepest(res[nterm_len:])
+
+
 def insertion_depth(st, receptor_order):
     """Deepest point the binder reaches along the transmembrane bundle axis.
 
@@ -170,6 +204,8 @@ def main():
         out["insertion_depth"] = depth
         out["reaches_activation_pocket"] = (
             depth is not None and depth > ACTIVATION_DEPTH_THRESHOLD)
+        dn, dc = segment_depths(pred.st, order)
+        out["nterm_depth"], out["rest_depth"] = dn, dc
         rows.append(out)
         print(f"[{i+1}/{len(jobs)}] {d['name'][:34]:34s} s{sd} iptm {out['iptm']:.3f} "
               f"core {len(hit_core):>2}/{len(core)} belt {len(hit_belt):>2} "

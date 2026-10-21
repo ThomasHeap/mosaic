@@ -1,0 +1,3 @@
+{"name": "glp1r_L65_s5306_0", "sequence": "FVRDWDDDSFDDFVKAFRFLRRHAKYRRDTGEPLTEEEWKRIDEEYPTPREQFRKFRKKRRKKRR", "molecule_class": "protein", "config": "glp1r-agonist-v1", "activation_weight": 2.0, "belt_weight": 2.0, "seconds": 1903.7577862739563}
+{"name": "glp1r_L65_s5306_1", "sequence": "FPDDDPDDTAQSARAFFKFAKQWKNGKEQYEQRNRYRDRKENGKPEEWNAEFTEFIQKARQRPPE", "molecule_class": "protein", "config": "glp1r-agonist-v1", "activation_weight": 2.0, "belt_weight": 2.0, "seconds": 1854.5331447124481}
+{"name": "glp1r_L65_s5306_2", "sequence": "FFDADEAMDEALVWIIRKWLKQRKKQQREKGQQQEEEDEENYGNEKDGRREEFEEAKETLYKFKT", "molecule_class": "protein", "config": "glp1r-agonist-v1", "activation_weight": 2.0, "belt_weight": 2.0, "seconds": 1853.7982158660889}
