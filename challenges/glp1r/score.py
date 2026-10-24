@@ -32,6 +32,17 @@ from target import (ACTIVATION_CORE, ACTIVATION_DEPTH_THRESHOLD,
 
 CONTACT = 4.5
 
+# Kyte-Doolittle hydropathy scale, for the mean-hydropathy screen.
+KD = {"A": 1.8, "R": -4.5, "N": -3.5, "D": -3.5, "C": 2.5, "Q": -3.5,
+      "E": -3.5, "G": -0.4, "H": -3.2, "I": 4.5, "L": 3.8, "K": -3.9,
+      "M": 1.9, "F": 2.8, "P": -1.6, "S": -0.8, "T": -0.7, "W": -0.9,
+      "Y": -1.3, "V": 4.2}
+
+
+def kyte_doolittle(seq: str) -> float:
+    vals = [KD[c] for c in seq if c in KD]
+    return float(sum(vals) / len(vals)) if vals else 0.0
+
 
 def contacts(st, binder_len, resnums, receptor_order):
     """Receptor residues in `resnums` within CONTACT of any binder heavy atom."""
@@ -188,10 +199,22 @@ def main():
         # iPTM via the loss term with an explicit binder length: pred.iptm reads
         # 0 for target_only_features, where no chain is the designated binder.
         key, k2 = jax.random.split(key)
-        val, _ = sp.IPTMLoss()(jnp.zeros((len(b), 20)), pred.model_output, k2)
         out = dict(d)
         out["seed"] = sd
-        out["iptm"] = -float(val)
+        # The organisers' selection prompt asks for three screens per design:
+        # pLDDT, ipSAE against the target, and mean Kyte-Doolittle hydropathy.
+        # Supplying them beats having them recomputed for us.
+        seq_dummy = jnp.zeros((len(b), 20))
+        for key_name, term in (("iptm", sp.IPTMLoss()),
+                               ("ipsae_bt", sp.BinderTargetIPSAE()),
+                               ("ipsae_tb", sp.TargetBinderIPSAE())):
+            try:
+                val, _ = term(seq_dummy, pred.model_output, k2)
+                out[key_name] = -float(val)
+            except Exception as exc:  # noqa: BLE001
+                out[key_name] = None
+                out[f"{key_name}_error"] = f"{type(exc).__name__}: {exc}"
+        out["hydropathy_kd"] = kyte_doolittle(b)
         out["plddt"] = float(np.asarray(pred.plddt).mean())
         hit_core = contacts(pred.st, len(b), core, order)
         hit_belt = contacts(pred.st, len(b), belt, order)
