@@ -1,0 +1,33 @@
+{
+  "params": {
+    "epsilon_solvent": 91.42214958596497,
+    "epsilon_interior": 17.6386540256879,
+    "screening_length": 3.3800152933830674,
+    "alpha_desolv": 0.8173992563030359,
+    "offset": -0.0001057981400567208
+  },
+  "fixed": {
+    "burial_cutoff": 10.0,
+    "burial_width": 2.0,
+    "burial_reference": 18.0
+  },
+  "n_complexes": 316,
+  "n_histidines": 1272,
+  "test_metrics": {
+    "mue_pka": 0.7269532084465027,
+    "mue_shift": 0.4572979807853699,
+    "mue_selectivity": 0.10070732235908508,
+    "r_selectivity": 0.37880054116249084
+  },
+  "test_metrics_before_fit": {
+    "mue_pka": 2.9263057708740234,
+    "mue_shift": 0.5575658679008484,
+    "mue_selectivity": 0.11764177680015564,
+    "r_selectivity": 0.41565632820129395
+  },
+  "test_null_baselines": {
+    "mue_pka": 0.8210204243659973,
+    "mue_shift": 0.5699254870414734,
+    "mue_selectivity": 0.12548872828483582
+  }
+}
